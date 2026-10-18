@@ -1,0 +1,1 @@
+# Original Arabic Brief placeholder - intent for Rafiq OS

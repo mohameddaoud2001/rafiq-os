@@ -1,0 +1,78 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    ports:
+      - "${RAFIQ_API_PORT:-8000}:8000"
+    environment:
+      - RAFIQ_ENV=${RAFIQ_ENV:-dev}
+      - RAFIQ_LIVE=sim
+      - RAFIQ_ROUTER=rules
+      - RAFIQ_MCP_MODE=http
+      - RAFIQ_AMIN_SECRET=${RAFIQ_AMIN_SECRET:?set RAFIQ_AMIN_SECRET to a random value of 32+ chars}
+      - RAFIQ_TRUSTED_HOSTS=${RAFIQ_TRUSTED_HOSTS:-}
+      # image default is 7860 (Hugging Face Spaces); compose keeps the api on 8000
+      - PORT=8000
+      # owner decision 2026-10-18: no sign-off requirement - real book text is
+      # always served, labelled «منقول من الكتب - بلا توقيع مفتٍ - المصدر: ...»
+      # with the mandatory "ليست فتوى مفتٍ معتمد" banner.
+    volumes:
+      - data_volume:/app/data
+    healthcheck:
+      test: ["CMD", "uv", "run", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health', timeout=2)"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  mcp-turath:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    command: ["uv", "run", "python", "-m", "rafiq.mcp_servers.turath", "--http"]
+    ports:
+      - "${RAFIQ_TURATH_PORT:-8001}:8001"
+    volumes:
+      - data_volume:/app/data
+    healthcheck:
+      test: ["CMD", "uv", "run", "python", "-c", "import httpx; httpx.get('http://localhost:8001/health', timeout=2)"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  mcp-ibadat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    command: ["uv", "run", "python", "-m", "rafiq.mcp_servers.ibadat", "--http"]
+    ports:
+      - "${RAFIQ_IBADAT_PORT:-8002}:8002"
+    volumes:
+      - data_volume:/app/data
+    healthcheck:
+      test: ["CMD", "uv", "run", "python", "-c", "import httpx; httpx.get('http://localhost:8002/health', timeout=2)"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  mcp-live:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    command: ["uv", "run", "python", "-m", "rafiq.mcp_servers.live", "--http"]
+    ports:
+      - "${RAFIQ_LIVE_PORT:-8003}:8003"
+    volumes:
+      - data_volume:/app/data
+    healthcheck:
+      test: ["CMD", "uv", "run", "python", "-c", "import httpx; httpx.get('http://localhost:8003/health', timeout=2)"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  data_volume:

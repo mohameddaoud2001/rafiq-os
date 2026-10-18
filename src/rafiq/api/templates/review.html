@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8">
+<title>لوحة التوثيق السريعة - الرفيق المسند</title>
+<meta name="csrf" content="{{ csrf }}">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --red:#b3261e; --amber:#ffb300; --green:#1b5e20; --ink:#111; --line:#999; }
+  body { font-family: serif; margin: 0; color: var(--ink); background:#faf8f4; }
+  header, footer { padding: 8px 14px; background:#f0ece2; border-bottom:1px solid var(--line); }
+  header { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  header h1 { font-size:18px; margin:0; }
+  header p { margin:0; font-size:13px; }
+  footer { border-top:1px solid var(--line); border-bottom:none; display:flex; flex-wrap:wrap; gap:8px; align-items:center; position:sticky; bottom:0; }
+  button { font-family:inherit; font-size:15px; padding:8px 12px; cursor:pointer; }
+  button.primary { background:var(--green); color:#fff; font-weight:bold; }
+  button.danger { background:var(--red); color:#fff; }
+  button.ghost { background:#fff; }
+  #progress-box { padding:8px 14px; background:#fff8e1; border-bottom:2px solid var(--amber); }
+  #bar { width:100%; height:16px; }
+  #progress-text { font-size:14px; margin-top:4px; }
+  #eta { font-size:13px; color:#555; }
+  main { display:grid; grid-template-columns: 3fr 2fr; gap:12px; padding:12px 14px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  section { background:#fff; border:1px solid var(--line); padding:10px; }
+  #status-badge { display:inline-block; background:var(--red); color:#fff; padding:3px 10px; font-size:14px; font-weight:bold; }
+  textarea#text { width:100%; box-sizing:border-box; font-family:inherit; font-size:16px; line-height:1.7; }
+  fieldset { border:1px solid var(--line); margin:8px 0; padding:8px; }
+  fieldset input { font-family:inherit; font-size:14px; padding:6px; margin:3px 0; width:100%; box-sizing:border-box; }
+  .row { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+  #source-meta dt { font-weight:bold; margin-top:6px; }
+  #source-meta dd { margin:0 12px 0 0; }
+  #scan-links a { display:inline-block; margin:4px 0; font-size:15px; }
+  #reject-bar { background:#fdecea; border:1px solid var(--red); padding:8px; margin-top:8px; }
+  #reject-reason { width:70%; padding:6px; font-family:inherit; }
+  #position { font-size:14px; color:#444; }
+  .hint { font-size:13px; color:#555; }
+  .keys { font-size:13px; color:#333; background:#f0ece2; padding:4px 8px; border-radius:4px; }
+  #toast { min-height:22px; font-size:14px; padding:2px 8px; }
+  #toast.ok { color:var(--green); font-weight:bold; }
+  #toast.err { color:var(--red); font-weight:bold; }
+  #empty { padding:30px; text-align:center; font-size:18px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>لوحة التوثيق السريعة</h1>
+  <p>المراجع: <span id="reviewer">{{ user.username }}</span> ({{ user.role }})</p>
+  <p><a href="/dashboard/corpus">لوحة النصوص المفصلة</a> · <a href="/dashboard/mufti">ملفات الفتوى</a></p>
+  <span id="position"></span>
+  <form method="post" action="/auth/logout" style="margin-inline-start:auto"><button class="ghost">خروج</button></form>
+</header>
+
+<section id="progress-box">
+  <progress id="bar" max="100" value="0"></progress>
+  <div id="progress-text">جارٍ تحميل قائمة التوثيق…</div>
+  <div id="eta"></div>
+</section>
+
+<div id="empty" hidden>
+  لا توجد صفحات غير موثّقة في القائمة — أحسنت، كل النصوص المرقمنة وُقّعت.
+  <p class="hint">تظهر الصفحات هنا بترتيب أهميتها حسب تحليلات الملفات (الأكثر سؤالا أولا).</p>
+</div>
+
+<main id="workbench" hidden>
+  <section id="left">
+    <div id="status-badge">غير موثّق</div>
+    <span class="hint">لا تُعرض أي صفحة «موثّق» قبل توقيعك — التوقيع إلزامي.</span>
+    <h2>النص المرقمن (قابل للتحرير)</h2>
+    <textarea id="text" dir="rtl" rows="16"></textarea>
+
+    <fieldset>
+      <legend>بيانات المصدر «[الكتاب][المؤلف][الطبعة][الصفحة]»</legend>
+      <div class="row">
+        <input id="work" placeholder="الكتاب" required>
+        <input id="author" placeholder="المؤلف">
+      </div>
+      <input id="edition" placeholder="الطبعة (دار النشر، السنة، التحقيق)" required>
+      <div class="row">
+        <input id="volume" placeholder="الجزء" type="number" min="1" required>
+        <input id="page" placeholder="الصفحة (أكّدها من الطبعة المطبوعة)" type="number" min="1" required>
+      </div>
+      <input id="provenance" placeholder="مصدر النسخة (ملف/رابط/بصمة)" required>
+      <input id="license" placeholder="الترخيص" required>
+      <input id="note" placeholder="ملاحظة (تُحفظ مع التوقيع)">
+    </fieldset>
+
+    <div id="reject-bar" hidden>
+      <input id="reject-reason" placeholder="سبب الرفض (إلزامي) — مثال: النص لا يطابق الطبعة المطبوعة">
+      <button class="danger" id="reject-confirm">تأكيد الرفض</button>
+      <button class="ghost" id="reject-cancel">إلغاء</button>
+    </div>
+  </section>
+
+  <section id="right">
+    <h2>المصدر / المسح</h2>
+    <p class="hint">افتح رابط الرقمنة وقابل النص سطرا بسطر؛ أثبت رقم الصفحة الصحيح في الحقل المخصص قبل التوقيع.</p>
+    <dl id="source-meta"></dl>
+    <div id="scan-links"></div>
+  </section>
+</main>
+
+<footer>
+  <button class="ghost" id="btn-prev">[K] السابق</button>
+  <button class="primary" id="btn-approve">[A] وثّق (توقيع)</button>
+  <button class="danger" id="btn-reject">[R] ارفض</button>
+  <button class="ghost" id="btn-fix">[E] صحّح الطبعة (بدون توقيع)</button>
+  <button class="ghost" id="btn-next">[J] التالي</button>
+  <button class="ghost" id="btn-copy">نسخ المتن مع المصدر (متن فقط - ليس فتوى)</button>
+  <span class="keys">J/K تنقّل · A توثيق · R رفض · E تصحيح طبعة</span>
+  <span id="toast"></span>
+</footer>
+
+<script src="/static/review.js" defer></script>
+</body>
+</html>

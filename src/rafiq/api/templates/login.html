@@ -1,0 +1,14 @@
+
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="utf-8"><title>دخول المراجعين</title></head>
+<body>
+<h1>دخول المراجعين</h1>
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+<form method="post" action="/auth/login">
+<input name="username" placeholder="اسم المستخدم" required>
+<input name="password" type="password" placeholder="كلمة المرور" required>
+<button>دخول</button>
+</form>
+</body>
+</html>

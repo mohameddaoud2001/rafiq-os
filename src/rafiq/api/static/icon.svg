@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="الرفيق المسند">
+  <rect width="512" height="512" rx="96" fill="#1b5e20"/>
+  <path d="M96 140c60-24 112-24 160 8 48-32 100-32 160-8v232c-58-22-110-22-158 8-52-30-104-30-162-8z" fill="#fff"/>
+  <path d="M256 148v232" stroke="#1b5e20" stroke-width="14"/>
+</svg>

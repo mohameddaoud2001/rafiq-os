@@ -1,0 +1,44 @@
+
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="utf-8"><title>توثيق النصوص</title><script src="https://unpkg.com/htmx.org@1.9.10"></script></head>
+<body>
+<h1>توثيق نصوص المصادر</h1>
+<p>المستخدم: {{ user.username }} ({{ user.role }})</p>
+<form method="post" action="/auth/logout"><button>خروج</button></form>
+<p><a href="/dashboard/mufti">لوحة المراجعة الفقهية</a> · <a href="/review">التوثيق السريع بلوحة المفاتيح (A/R/E - J/K)</a></p>
+<p>
+{% for m in madhhabs %}
+<a href="/dashboard/corpus?madhhab={{ m }}">{{ m }}</a>{% if not loop.last %} | {% endif %}
+{% endfor %}
+</p>
+<p>المذهب: {{ madhhab }} - الموثق: {{ verified_count }} - قيد التوثيق: {{ pending | length }}</p>
+<p>فحص سلامة التوثيقات: {% if check.ok %}سليم ({{ check.checked }}){% else %}خلل ({{ check.mismatches | length }}){% endif %}</p>
+{% if check.mismatches %}
+<ul>
+{% for mm in check.mismatches[:10] %}
+<li>{{ mm.madhhab }}/{{ mm.passage_id }}: {{ mm.reason }}</li>
+{% endfor %}
+</ul>
+{% endif %}
+<div id="pending">
+{% for p in pending %}
+<div style="border:1px solid #999; margin:8px 0; padding:8px">
+<p>{{ p.text }}</p>
+<form hx-post="/dashboard/corpus/{{ madhhab }}/{{ p.id }}/verify" hx-target="#result">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<input name="work" placeholder="الكتاب" value="{{ p.work or '' }}" required>
+<input name="edition" placeholder="الطبعة" value="{{ p.edition or '' }}" required>
+<input name="volume" placeholder="الجزء" type="number" min="1" required>
+<input name="page" placeholder="الصفحة" type="number" min="1" required>
+<input name="provenance" placeholder="مصدر النسخة (ملف/رابط/بصمة)" value="{{ p.provenance or '' }}" required>
+<input name="license" placeholder="الترخيص" value="{{ p.license or '' }}" required>
+<input name="note" placeholder="ملاحظة">
+<button>أشهد أن النص مطابق للمصدر</button>
+</form>
+</div>
+{% endfor %}
+</div>
+<div id="result"></div>
+</body>
+</html>

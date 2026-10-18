@@ -1,0 +1,27 @@
+
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="utf-8"><title>لوحة المشايخ</title><script src="https://unpkg.com/htmx.org@1.9.10"></script></head>
+<body>
+<h1>لوحة المراجعة الفقهية</h1>
+<p>المستخدم: {{ user.username }} ({{ user.role }})</p>
+<form method="post" action="/auth/logout"><button>خروج</button></form>
+<p><a href="/dashboard/corpus">توثيق نصوص المصادر</a> · <a href="/review">التوثيق السريع بلوحة المفاتيح (A/R/E - J/K)</a></p>
+<div id="dossiers">
+{% for d in dossiers %}
+<div>
+<p>المسألة: {{ d.masala }} - الحالة: {{ d.status }} - المعرف: {{ d.id }}</p>
+{% if d.status == "PENDING" or d.status == "AWAITING_QUORUM" %}
+<form hx-post="/dashboard/mufti/{{ d.id }}/decision" hx-target="#result">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<select name="decision"><option>APPROVED</option><option>REJECTED</option><option>EDITED</option></select>
+<input name="note" placeholder="ملاحظة">
+<button>إرسال</button>
+</form>
+{% endif %}
+</div>
+{% endfor %}
+</div>
+<div id="result"></div>
+</body>
+</html>

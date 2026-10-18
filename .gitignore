@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+*.log
+.DS_Store
+*:Zone.Identifier
+.pytest_cache/
+.ruff_cache/
+.tmp/
+VERIFY_REPORT.md
+data/db/
+data/analytics/
+data/dossiers/
+data/audit.jsonl
+data/auth.db

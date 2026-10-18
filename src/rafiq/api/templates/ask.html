@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8">
+<title>الرفيق المسند - اسأل عن المصادر</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="اسأل سؤالك، فيُعرض الجواب بنقول حرفية من كتب معتمدة مذكورة معه، مع مواضعها من الطبعات - للمطالعة والتحقق، وليس فتوى مفتٍ.">
+<meta name="theme-color" content="#1b5e20">
+<link rel="canonical" href="/">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="الرفيق المسند">
+<meta property="og:title" content="الرفيق المسند - جواب من الكتب مع مصادره">
+<meta property="og:description" content="جواب مبني على نقل حرفي من كتب معتمدة مذكورة، مع مواضعها من الطبعات - ليس فتوى مفتٍ، وللفتوى راجع أهل العلم.">
+<meta property="og:locale" content="ar">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="الرفيق المسند - جواب من الكتب مع مصادره">
+<meta name="twitter:description" content="جواب مبني على نقل حرفي من كتب معتمدة مذكورة - ليس فتوى مفتٍ.">
+<style>
+  :root { --red:#b3261e; --amber:#ffb300; --green:#1b5e20; --ink:#111; --line:#999; }
+  body { font-family: serif; margin: 0; color: var(--ink); background:#faf8f4; }
+  header { padding: 10px 14px; background:#f0ece2; border-bottom:1px solid var(--line); }
+  header h1 { font-size:20px; margin:0 0 4px; }
+  header p { margin:0; font-size:14px; color:#444; }
+  header a { font-size:14px; }
+  main { max-width: 860px; margin: 0 auto; padding: 12px 14px 40px; }
+  form#ask-form { background:#fff; border:1px solid var(--line); padding:12px; }
+  label { display:block; font-size:15px; margin:6px 0 2px; }
+  select, textarea { font-family:inherit; font-size:16px; padding:8px; width:100%; box-sizing:border-box; }
+  textarea { min-height:70px; }
+  button.primary { margin-top:10px; background:var(--green); color:#fff; font-family:inherit; font-size:16px; font-weight:bold; padding:10px 18px; cursor:pointer; }
+  #status { min-height:22px; font-size:14px; color:#555; margin:8px 0; }
+  #banner-box div { background:#fdecea; border:1px solid var(--red); color:var(--red); padding:8px 10px; margin:6px 0; font-size:14px; }
+  #fatwa { background:#fff; border:1px solid var(--line); padding:10px; margin:10px 0; }
+  #message { font-size:18px; font-weight:bold; margin:10px 0; }
+  .work-title { margin:16px 0 4px; font-size:16px; }
+  .finding { background:#fff; border:1px solid var(--line); padding:10px; margin:8px 0; }
+  .badge { display:inline-block; padding:2px 10px; font-size:13px; font-weight:bold; color:#fff; }
+  .badge-unsigned { background:var(--red); }
+  .badge-signed { background:var(--green); }
+  .source-line { font-size:13px; color:#333; margin:6px 0 2px; }
+  .page-hint { font-size:13px; color:#7a5c00; background:#fff8e1; display:inline-block; padding:1px 6px; margin:4px 0; }
+  pre.matn { white-space:pre-wrap; font-family:inherit; font-size:16px; line-height:1.9; background:#fcfbf7; border:1px dashed var(--line); padding:8px; margin:8px 0 4px; }
+  .links a { display:inline-block; margin:2px 8px 2px 0; font-size:14px; }
+  #citations .share { margin-top:14px; border-top:1px dashed var(--line); padding-top:8px; }
+  .empty-note { color:#555; font-size:14px; }
+  footer { max-width:860px; margin:0 auto; padding:10px 14px 24px; font-size:13px; color:#444; border-top:1px solid var(--line); }
+</style>
+</head>
+<body>
+<header>
+  <h1>الرَّفِيق المُسْنِد</h1>
+  <p>اسأل، فيُبنى لك جواب من النقول الحرفية في الكتب المعتمدة المذكورة معها - وليس فتوى مفتٍ.</p>
+  <p><a href="/login">دخول المشايخ والمراجعة</a></p>
+</header>
+<main>
+<form id="ask-form">
+  <label for="madhhab">المذهب</label>
+  <select id="madhhab">
+    <option value="maliki">مالكي</option>
+    <option value="hanafi">حفي</option>
+    <option value="shafii">شافعي</option>
+    <option value="hanbali">حنبلي</option>
+  </select>
+  <label for="q">سؤالك</label>
+  <textarea id="q" placeholder="مثال: ما حكم صلاة الجماعة في المسجد؟" required></textarea>
+  <button class="primary" type="submit">اعرض النصوص</button>
+</form>
+<div id="status"></div>
+<div id="banner-box"></div>
+<div id="fatwa"></div>
+<div id="message"></div>
+<div id="citations"></div>
+</main>
+<footer>
+  الجواب يُبنى بالنقل الحرفي من نسخ مطبوعة مذكورة مع كل نقل، فهو «منقول من الكتب
+  - بلا توقيع مفتٍ» ولا يضيف النظام أي صياغة فقهية من عنده؛ فهذه الإجابات ليست فتوى مفتٍ
+  معتمد ولا حكماً ملزماً، وإنما نقول من الكتب للاطلاع والتحقق - وللفتوى راجع أهل العلم.
+</footer>
+<script src="/static/ask.js" defer></script>
+</body>
+</html>
