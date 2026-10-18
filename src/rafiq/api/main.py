@@ -35,7 +35,7 @@ from rafiq.core.messages import BANNERS, DISPLAY_MODES, ERRORS, LABELS, MADHHAB_
 from rafiq.core.supervisor import get_supervisor
 from rafiq.core.verifier import verify_agent_output
 from rafiq.rag.madhhab_stores import query_cores
-from rafiq.rag.source_links import page_hint, source_citation
+from rafiq.rag.source_links import page_hint, page_hint_label, source_citation
 from rafiq.rag.source_links import scan_url as resolve_scan_url
 
 
@@ -106,6 +106,7 @@ def annotate_finding(f: dict) -> dict:
     """
     f["scan_url"] = f.get("scan_url") or resolve_scan_url(provenance=f.get("provenance"))
     f["page_hint"] = page_hint(f.get("provenance"))
+    f["page_hint_label"] = page_hint_label(f.get("provenance"))
     f["source_label"] = source_citation(
         work=f.get("work"),
         author=f.get("author"),

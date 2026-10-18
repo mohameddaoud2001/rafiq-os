@@ -127,3 +127,18 @@ Khalil Hajj pages. Remaining for wider reach: more books/chapters via
 gen_chapters.py, semantic retrieval, UI locales (EN/UR/ID/TR), CC BY-NC-SA
 decision for commercial use.
 Resume: bash scripts/verify.sh
+
+- [x] M21 easier Maliki reading (owner request): الدردير «الشرح الكبير على
+      مختصر خليل» added as a readable prose layer for maliki - JK000193
+      digitization (دار الفكر، بيروت، 4 مجلدات، تح: محمد عليش، sha256
+      61510e77...) converted into 1302 page-passages over 21 chapters
+      (taharah → waqf/hiba) with per-volume page hints; converter now keys
+      pages by (vol, page) (numbers restart per volume) and the generator
+      promotes Dardir's `# |` headers and emits `_v2pNNN` ids; hidaya/muzani
+      ids corrected to their real volumes (v3p/v8p) which previously showed
+      PageV01 hints. Khulasa guards hardened against commentary-style false
+      positives («أي يحرم» glosses, hukm bound to the question's specific
+      term only, noun-form rulings only after the subject, 2-term rank floor)
+      - on commentary-heavy results the summary honestly stays «غير واضح»
+      with the nearest verbatim clause; retrieval for maliki questions now
+      leads with readable Dardir prose. Tests 69 + verify.sh updated.

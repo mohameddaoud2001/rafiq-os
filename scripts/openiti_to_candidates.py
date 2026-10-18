@@ -42,10 +42,12 @@ def parse_markdown_section(
 ) -> list[dict]:
     """Extract page-chunked passages from a `### | <section_title>` chapter.
 
-    Returns dicts: {"page": int, "text": str, "headings": [str]}.
-    Page hint comes from PageV01P### markers; text before a marker belongs to
+    Returns dicts: {"page": int, "vol": str, "text": str, "headings": [str]}.
+    Page hint comes from PageV##P### markers (vol kept as two-digit string,
+    default "01" for single-volume texts); text before a marker belongs to
     the page that marker closes (OpenITI convention: marker sits at the page
-    break).
+    break). Page numbers may restart per volume, so pages are keyed by
+    (vol, page).
 
     `end_with` (optional): stop at the first following header-shaped line
     whose stripped text starts with this string (e.g. the next كتاب title).
@@ -83,13 +85,14 @@ def parse_markdown_section(
             break
 
     pages: list[dict] = []
-    by_page: dict[int, dict] = {}
+    by_page: dict[tuple[str, int], dict] = {}
+    current_vol: str = "01"
     current_page: int | None = None
     buffer: list[str] = []
     current_headings: list[str] = []
     carry: str = ""
 
-    def flush(page: int | None):
+    def flush(vol: str, page: int | None):
         nonlocal buffer, carry
         body = "\n".join(x for x in buffer if x.strip()).strip()
         body = MS_RE.sub("", body).strip()
@@ -99,11 +102,17 @@ def parse_markdown_section(
             body = (carry + "\n" + body).strip() if body else carry
             carry = ""
         if page is not None and len(body) >= min_chars:
-            if page in by_page:
-                by_page[page]["text"] += "\n" + body
+            key = (vol, page)
+            if key in by_page:
+                by_page[key]["text"] += "\n" + body
             else:
-                entry = {"page": page, "text": body, "headings": list(current_headings)}
-                by_page[page] = entry
+                entry = {
+                    "page": page,
+                    "vol": vol,
+                    "text": body,
+                    "headings": list(current_headings),
+                }
+                by_page[key] = entry
                 pages.append(entry)
         else:
             carry = body  # too short for a page of its own; prepend to next
@@ -120,18 +129,21 @@ def parse_markdown_section(
         m = PAGE_RE.fullmatch(stripped)
         if m:
             # marker announces the page of the text that follows
-            flush(current_page)
+            flush(current_vol, current_page)
+            current_vol = m.group(1)
             current_page = int(m.group(2))
             continue
         # inline page marker at end of a text line: it closes the page of the
         # text preceding it; following text continues on the next page
         inline = PAGE_RE.search(line)
         if inline:
+            new_vol = inline.group(1)
             new_page = int(inline.group(2))
             before = PAGE_RE.sub("", line).lstrip("#~ ").strip()
             if before and not _is_dots_only(before):
                 buffer.append(before)
-            flush(new_page)
+            flush(new_vol, new_page)
+            current_vol = new_vol
             current_page = new_page + 1
             continue
         if line.startswith("###"):
@@ -151,7 +163,7 @@ def parse_markdown_section(
             buffer.append(line.lstrip("~ ").rstrip())
             continue
         buffer.append(line.strip())
-    flush(current_page)
+    flush(current_vol, current_page)
     return pages
 
 
@@ -169,11 +181,17 @@ def to_candidates(
     out = []
     for p in pages:
         tags = list(dict.fromkeys(["hajj", "الحج", madhhab, *extra_tags, *p["headings"]]))
-        hint = f"PageV01P{p['page']:03d} (page hint from digitization; confirm at sign-off)"
+        vol = p.get("vol", "01")
+        hint = f"PageV{vol}P{p['page']:03d} (page hint from digitization; confirm at sign-off)"
         prov = f"{provenance} {hint}"
+        sid = (
+            f"{id_prefix}_p{p['page']:03d}"
+            if vol == "01"
+            else f"{id_prefix}_v{int(vol)}p{p['page']:03d}"
+        )
         out.append(
             {
-                "id": f"{id_prefix}_p{p['page']:03d}",
+                "id": sid,
                 "madhhab": madhhab,
                 "work": work,
                 "author": author,

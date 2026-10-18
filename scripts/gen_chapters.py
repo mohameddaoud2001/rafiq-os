@@ -13,6 +13,7 @@ or override with $RAFIQ_OPENITI_SRC):
   https://raw.githubusercontent.com/OpenITI/0700AH/master/data/0676Nawawi/0676Nawawi.MinhajTalibin/0676Nawawi.MinhajTalibin.Shamela0012096-ara1  # noqa: E501
   https://raw.githubusercontent.com/OpenITI/0275AH/master/data/0264IbnYahyaMuzani/0264IbnYahyaMuzani.Mukhtasar/0264IbnYahyaMuzani.Mukhtasar.Shamela0001661-ara1  # noqa: E501
   https://raw.githubusercontent.com/OpenITI/0625AH/master/data/0620IbnQudamaMaqdisi/0620IbnQudamaMaqdisi.CumdatFiqh/0620IbnQudamaMaqdisi.CumdatFiqh.Shamela0011315-ara1  # noqa: E501
+  https://raw.githubusercontent.com/OpenITI/1225AH/master/data/1201AhmadDardirAbuBarakat/1201AhmadDardirAbuBarakat.SharhKabir/1201AhmadDardirAbuBarakat.SharhKabir.JK000193-ara1  # noqa: E501
 
 Usage: uv run python scripts/gen_chapters.py
 Writes data/corpus/<madhhab>/candidates/<work>_chapters.jsonl (additive;
@@ -33,6 +34,28 @@ conv = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(conv)
 
 L = "CC BY-NC-SA 4.0 (OpenITI corpus)"
+
+_DARDIR_PLAIN_HEADER_RE = re.compile(r"^# (?:باب|كتاب|فصل) .+$")
+
+
+def preprocess_dardir(text: str) -> str:
+    """Promote Dardir's shallow `#`-level markers to `###` headers.
+
+    The JK digitization marks its chapters as `# | باب ...` / `# باب ...`
+    (all other works use `### |`). Promoting the marker lines to `### |`
+    lets the shared parser treat them as headings; text is not altered
+    otherwise.
+    """
+    out = []
+    for line in text.splitlines():
+        if line.startswith("# | "):
+            out.append("### | " + line[4:].strip())
+        elif _DARDIR_PLAIN_HEADER_RE.match(line):
+            out.append("### | " + line[2:].strip())
+        else:
+            out.append(line)
+    return "\n".join(out)
+
 
 WORKS = [
     dict(
@@ -96,6 +119,85 @@ WORKS = [
             ("باب في أحكام الإجارة والكراء", "khalil_ijara", ["إجارة", "كراء", "أجرة"]),
             ("باب في بيان أحكام الوقف", "khalil_waqf", ["وقف", "حبس"]),
             ("باب في أحكام الهبة ومتعلقاتها", "khalil_hiba", ["هبة", "هدية", "صدقة"]),
+        ],
+    ),
+    dict(
+        key="dardir",
+        input=SRC / "dardir_sharh_kabir.txt",
+        output=ROOT / "data/corpus/maliki/candidates/dardir_chapters.jsonl",
+        madhhab="maliki",
+        top_re=r"^### \| (باب|كتاب)",
+        preprocess=preprocess_dardir,
+        provenance="OpenITI:1225AH/1201AhmadDardirAbuBarakat.SharhKabir.JK000193-ara1 sha256:61510e7706156bf21e08f46acb96629d6a3631aa4d8e8b6402c8fc048af5106b",
+        work="الشرح الكبير على مختصر خليل",
+        author="أحمد بن محمد العدوي الدردير أبو البركات (ت 1201هـ)",
+        edition="دار الفكر، بيروت، 4 مجلدات، تح: محمد عليش",
+        chapters=[
+            (
+                "باب هذا باب يذكر فيه",
+                "dardir_tahara",
+                ["طهارة", "وضوء", "غسل", "تيمم", "نجاسة", "حيض", "مسح"],
+            ),
+            (
+                "باب في بيان أوقات الصلاة والأذان",
+                "dardir_salat",
+                [
+                    "صلاة",
+                    "جماعة",
+                    "جمعة",
+                    "قصر",
+                    "جمع",
+                    "عيد",
+                    "خوف",
+                    "استسقاء",
+                    "كسوف",
+                    "جنازة",
+                    "نافلة",
+                    "وتر",
+                    "سجود",
+                    "أذان",
+                    "أوقات",
+                ],
+            ),
+            (
+                "باب الزكاة",
+                "dardir_zakat",
+                ["زكاة", "صدقة", "فطر", "زروع", "ثمار", "ركاز", "معادن", "ماشية"],
+            ),
+            ("باب ذكر فيه حكم الصيام", "dardir_siyam", ["صوم", "رمضان", "قضاء", "كفارة"]),
+            ("باب في الاعتكاف", "dardir_itikaf", ["اعتكاف", "مسجد", "صوم", "رمضان"]),
+            (
+                "باب في بيان أحكام الحج والعمرة",
+                "dardir_hajj",
+                ["حج", "عمرة", "إحرام", "طواف", "سعي", "وقوف", "عرفة", "مناسك", "هدي", "فدية"],
+            ),
+            ("باب الذكاة", "dardir_dhakat", ["ذكاة", "ذبح", "صيد", "لحم"]),
+            ("باب المباح حال الاختيار", "dardir_atima", ["طعام", "أطعمة", "لحم", "مباح"]),
+            ("باب ( سن ) عينا", "dardir_udhiya", ["أضحية", "عقيقة", "ذبح"]),
+            ("باب ( اليمين تحقيق )", "dardir_yamin", ["يمين", "نذر", "كفارة", "أيمان"]),
+            (
+                "باب في النكاح وما يتعلق به",
+                "dardir_nikah",
+                ["نكاح", "زواج", "مهر", "صداق", "ولي", "خلع", "قسم", "عيب"],
+            ),
+            ("باب الإيلاء يمين زوج", "dardir_ila", ["إيلاء", "طلاق", "كفارة"]),
+            ("باب ذكر فيه الظهار", "dardir_zihar", ["ظهار", "طلاق", "كفارة"]),
+            ("باب ذكر فيه اللعان", "dardir_lian", ["لعان", "طلاق"]),
+            (
+                "باب في بيان ذلك وأسبابها",
+                "dardir_idda",
+                ["عدة", "طلاق", "قرء", "حيض", "وفاة"],
+            ),
+            ("باب حصول", "dardir_rida", ["رضاع", "حضانة", "لبن"]),
+            ("باب ذكر فيه أسباب النفقة", "dardir_nafaqa", ["نفقة", "قرابة"]),
+            (
+                "باب ذكر فيه البيع",
+                "dardir_buyu",
+                ["بيع", "شراء", "ربا", "خيار", "ثمن", "عينة", "مرابحة"],
+            ),
+            ("باب ذكر فيه السلم", "dardir_salam", ["سلم", "صرف", "قرض", "ثمن", "بيع"]),
+            ("باب في أحكام الوقف", "dardir_waqf", ["وقف", "حبس", "تبرعات"]),
+            ("باب في الهبة", "dardir_hiba", ["هبة", "هدية", "صدقة"]),
         ],
     ),
     dict(
@@ -284,11 +386,19 @@ def stripped(line: str) -> str:
 
 for w in WORKS:
     text = w["input"].read_text(encoding="utf-8")
+    if w.get("preprocess"):
+        text = w["preprocess"](text)
     lines = text.splitlines()
+    # OpenITI marker lines are usually standalone (`# PageV01P001`), but in
+    # some digitizations the first markers sit inline on front-matter lines,
+    # so fall back to the first line containing any PageV marker.
     first_page = next(
         (i for i, line in enumerate(lines) if re.match(r"^#+ *PageV\d+P", line.strip())),
-        len(lines),
+        None,
     )
+    first_any = next((i for i, line in enumerate(lines) if "PageV" in line), len(lines))
+    if first_page is None or first_any < first_page:
+        first_page = first_any
     top = [
         (i, stripped(line))
         for i, line in enumerate(lines)
@@ -312,10 +422,14 @@ for w in WORKS:
         pages = conv.parse_markdown_section(text, title, end_with=nxt)
         for p in pages:
             all_tags = list(dict.fromkeys([w["madhhab"], *tags, *p["headings"]]))
-            hint = f"PageV01P{p['page']:03d} (page hint from digitization; confirm at sign-off)"
+            vol = p.get("vol", "01")
+            hint = f"PageV{vol}P{p['page']:03d} (page hint from digitization; confirm at sign-off)"
+            sid = (
+                f"{slug}_p{p['page']:03d}" if vol == "01" else f"{slug}_v{int(vol)}p{p['page']:03d}"
+            )
             out_rows.append(
                 {
-                    "id": f"{slug}_p{p['page']:03d}",
+                    "id": sid,
                     "madhhab": w["madhhab"],
                     "work": w["work"],
                     "author": w["author"],

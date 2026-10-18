@@ -357,7 +357,7 @@ def test_shareability_meta_manifest_sitemap_robots(tmp_path, monkeypatch):
     }, d.get("hukm_mubasat")
     findings = [f for c in d["citations"] for f in c["findings"]]
     assert 0 < len(findings) <= 3, "only the best pages may be served"
-    assert "الجماع" in khulasa, "summary must carry the asked subject verbatim"
+    assert "جماع" in khulasa, "summary must carry the asked subject stem verbatim"
 
 
 def test_khulasa_is_extractive_and_detects_hukm():
@@ -397,6 +397,39 @@ def test_khulasa_is_extractive_and_detects_hukm():
         }
     ]
     assert build_khulasa(neg, "ما حكم إمامة المميز")["hukm"] == "حرام"
+    # Dardir-style gloss «... أي يحرم ...» restates another مسألة, not the asked
+    # subject: it must not be read as a ruling on the question.
+    gloss = [
+        {
+            "extra": {"madhhab": "maliki"},
+            "findings": [
+                {
+                    "excerpt": (
+                        "ولا تبتدأ صلاة فرضا أو نفلا من فذ أو جماعة أي يحرم ابتداؤها بالمسجد"
+                    ),
+                    "work": "الشرح الكبير",
+                    "madhhab": "maliki",
+                    "source_id": "dardir_salat_p323",
+                }
+            ],
+        }
+    ]
+    assert build_khulasa(gloss, "ما حكم صلاة الجماعة")["hukm"] == UNKNOWN
+    # a page without the specific asked subject must not donate a hukm
+    off = [
+        {
+            "extra": {"madhhab": "maliki"},
+            "findings": [
+                {
+                    "excerpt": "جلوسه في الصلاة ويخرج من الكراهة بتغيير هيئته",
+                    "work": "الشرح الكبير",
+                    "madhhab": "maliki",
+                    "source_id": "dardir_salat_p332",
+                }
+            ],
+        }
+    ]
+    assert build_khulasa(off, "ما حكم صلاة الجماعة")["hukm"] == UNKNOWN
     vague = [
         {
             "extra": {"madhhab": "maliki"},

@@ -62,7 +62,7 @@ from rafiq.rag.madhhab_stores import get_passage
 general = {
     'maliki': 'khalil_tahara_p026',
     'hanafi': 'hidaya_salat_p070',
-    'shafii': 'muzani_zakat_p144',
+    'shafii': 'muzani_zakat_v8p144',
     'hanbali': 'cumda_atima_p115',
 }
 for mh, pid in general.items():
@@ -133,10 +133,10 @@ k = d.get('khulasa') or ''
 assert k.startswith('بناءً على ما نقل من الكتب المذكورة'), k
 assert k.endswith('وليست فتوى معتمدة، وللفتوى المعتمدة راجع أهل العلم.'), k
 assert d.get('hukm_mubasat') in ['سنة','سنة مؤكدة','مستحب','مباح','مكروه','حرام','واجب','غير واضح'], d.get('hukm_mubasat')
-assert 'الجماع' in k, k
+assert 'جماع' in k, k
 findings = [f for c in d['citations'] for f in c['findings']]
 assert 0 < len(findings) <= 3, len(findings)
-assert any('p040' in f['source_id'] for f in findings), [f['source_id'] for f in findings]
+assert any(f['source_id'].startswith(('khalil_salat', 'dardir_salat')) for f in findings), [f['source_id'] for f in findings]
 assert d['fatwa'] and d['fatwa']['text'], 'verbatim evidence layer must stay'
 " && pass "khulasa summary" || fail "khulasa summary"
 

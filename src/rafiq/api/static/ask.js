@@ -35,9 +35,9 @@
     card.appendChild(el("span", f.verified ? "badge badge-signed" : "badge badge-unsigned",
       f.label || (f.verified ? "موثّق" : "منقول من الكتب")));
     if (f.source_label) card.appendChild(el("div", "source-line", f.source_label));
-    if (f.page_hint) {
+    if (f.page_hint_label || f.page_hint) {
       card.appendChild(el("div", "page-hint",
-        "الصفحة في النسخة المرقمنة: " + f.page_hint + " (للمطابقة)"));
+        "الصفحة في النسخة المرقمنة: " + (f.page_hint_label || f.page_hint) + " (للمطابقة)"));
     }
     card.appendChild(el("pre", "matn", f.excerpt || ""));
     var links = el("div", "links");

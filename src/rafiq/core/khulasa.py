@@ -48,6 +48,23 @@ _KEYWORDS = [(fam, normalize_for_search(kw)) for fam, kws in _FAMILIES.items() f
 _NEGATIONS = {"لا", "ما", "لم", "لن"}
 # «في فرض / غير فرض» is a topic phrase, not a ruling: never read it as wajib.
 _TOPIC_PREPS = {"في", "على", "عن", "من", "الى", "غير", "الا"}
+# Noun-form ruling words are only trusted AFTER the asked subject («الجماعة …
+# سنة»); before it they are usually component lists («وواجبه نية وموالاة»).
+_NOUN_KEYWORDS = {
+    "حرام",
+    "مكروه",
+    "كراهة",
+    "واجب",
+    "فرض",
+    "فريضة",
+    "سنة",
+    "مسنون",
+    "مستحب",
+    "مندوب",
+    "مباح",
+    "جائز",
+    "حلال",
+}
 _PREFIXES = ("وال", "فال", "ال", "و", "ف")
 _TOKEN_RE = re.compile(r"\S+")
 _GLUED_DIGITS_RE = re.compile(r"([\u0621-\u064a])[0-9\u0660-\u0669\u06f0-\u06f9]+")
@@ -65,28 +82,25 @@ def _bare(token: str) -> str:
     return tok
 
 
-def _match_family(bare: str) -> Optional[str]:
+def _matched_keyword(bare: str):
+    """(family, matched_keyword) for a token, or (None, None)."""
     if not bare:
-        return None
+        return None, None
     hits = []
     for fam, kw in _KEYWORDS:
         if bare == kw or bare in (kw + "ا", kw + "ه"):
-            hits.append(fam)
+            hits.append((fam, kw))
         elif len(kw) >= 4 and bare.startswith(kw):
-            hits.append(fam)
+            hits.append((fam, kw))
     if not hits:
-        return None
+        return None, None
     # longest keyword wins: «سنة مؤكدة» pattern is handled separately, and
     # «مكروه» must not be shadowed by a shorter family keyword.
-    return max(hits, key=lambda f: max(len(k) for k in _FAMILIES[f]))
+    return max(hits, key=lambda fk: len(fk[1]))
 
 
-def _tokens(text: str) -> list:
-    return _TOKEN_RE.findall(text or "")
-
-
-def _hukm_hits(tokens: list) -> list:
-    """Family hits in a token span, with immediate negation handled."""
+def _hukm_hits_detail(tokens: list) -> list:
+    """[(index, family, is_noun_form)] hits in a token span, negation handled."""
     hits = []
     for j, tok in enumerate(tokens):
         b = _bare(tok)
@@ -94,15 +108,19 @@ def _hukm_hits(tokens: list) -> list:
             continue
         neg = j > 0 and _bare(tokens[j - 1]) in _NEGATIONS
         if b == "باس" and neg:
-            hits.append("mubah")  # «لا بأس» = permitted
+            hits.append((j, "mubah", False))  # «لا بأس» = permitted (phrase)
             continue
         if b == "سنة" and j + 1 < len(tokens) and _bare(tokens[j + 1]).startswith("مؤكد"):
-            fam = "sunna_muakkada"
+            fam, kw = "sunna_muakkada", "سنة"
         else:
-            fam = _match_family(b)
+            fam, kw = _matched_keyword(b)
             if fam is None:
                 continue
         if fam == "wajib" and j > 0 and _bare(tokens[j - 1]) in _TOPIC_PREPS:
+            continue
+        if j > 0 and _bare(tokens[j - 1]) == "اي":
+            # «... أي يحرم ابتداؤها» glosses another مسألة (e.g. a negated matn
+            # phrase before it), not the asked subject: never read it as hukm.
             continue
         if neg:
             if fam == "mubah":
@@ -110,8 +128,17 @@ def _hukm_hits(tokens: list) -> list:
             else:
                 fam = None  # negated obligation/recommendation: cannot decide
         if fam:
-            hits.append(fam)
+            hits.append((j, fam, kw in _NOUN_KEYWORDS))
     return hits
+
+
+def _hukm_hits(tokens: list) -> list:
+    """Family hits in a token span, with immediate negation handled."""
+    return [fam for _, fam, _ in _hukm_hits_detail(tokens)]
+
+
+def _tokens(text: str) -> list:
+    return _TOKEN_RE.findall(text or "")
 
 
 def _resolve(hits: list) -> str:
@@ -134,12 +161,35 @@ def _core_positions(tokens: list, cores: list) -> list:
     return out
 
 
+def _is_definite_core(tok: str, cores: list) -> bool:
+    """True for «ال»-prefixed forms like الجماعة/والجماعة (vs clipped كجماعة)."""
+    raw = normalize_for_search(tok)
+    return any(("ال" + c) in raw for c in cores)
+
+
+def _longest_core(bare: str, cores: list) -> bool:
+    """True when the token carries the question's most specific (longest) term.
+
+    Generic terms like «حكم/صلاة» appear on almost every page; a hukm found
+    near them must not be read as a ruling on the asked subject (e.g. «ويخرج
+    من الكراهة» near «الصلاة» on a page that never mentions الجماعة).
+    """
+    if not cores:
+        return False
+    return max(cores, key=len) in bare
+
+
 def _best_core_index(tokens: list, cores: list):
-    """Occurrence followed by an explicit hukm keyword wins, else earliest."""
+    """Occurrence followed by an explicit hukm keyword on the specific term
+    wins, then a definite («ال…») form, else earliest."""
     best_i, best_key = None, None
     for i in _core_positions(tokens, cores):
         span = tokens[max(0, i - 3) : i + 9]
-        key = (1 if _hukm_hits(span) else 0, -i)
+        key = (
+            1 if _hukm_hits(span) and _longest_core(_bare(tokens[i]), cores) else 0,
+            1 if _is_definite_core(tokens[i], cores) else 0,
+            -i,
+        )
         if best_key is None or key > best_key:
             best_i, best_key = i, key
     return best_i
@@ -178,8 +228,16 @@ def finding_hukm(finding: dict, cores: list):
     if best_i is None:
         return UNKNOWN, clause_from_excerpt(excerpt, cores)
     clause = clause_from_excerpt(excerpt, cores)
-    hits = _hukm_hits(tokens[max(0, best_i - 3) : best_i + 9])
-    return _resolve(hits), clause
+    if not _longest_core(_bare(tokens[best_i]), cores):
+        return UNKNOWN, clause  # page lacks the specific asked subject
+    lo = max(0, best_i - 3)
+    detail = _hukm_hits_detail(tokens[lo : best_i + 9])
+    fams = [
+        fam
+        for j, fam, is_noun in detail
+        if not (is_noun and lo + j < best_i)  # noun rulings must follow the subject
+    ]
+    return _resolve(fams), clause
 
 
 def finding_score(finding: dict, cores: list) -> tuple:
@@ -190,7 +248,7 @@ def finding_score(finding: dict, cores: list) -> tuple:
     tokens = _tokens(excerpt)
     hits = 0
     for i in _core_positions(tokens, cores):
-        if _hukm_hits(tokens[max(0, i - 3) : i + 9]):
+        if _longest_core(_bare(tokens[i]), cores) and _hukm_hits(tokens[max(0, i - 3) : i + 9]):
             hits += 1
     return (distinct, hits)
 
@@ -198,13 +256,16 @@ def finding_score(finding: dict, cores: list) -> tuple:
 def rank_findings(findings: list, cores: list, cap: int = 3) -> list:
     """Best 2-3 pages only.
 
-    Keeps the pages that carry the full density peak of the asked terms (a
-    page matching only some of them, like an unrelated Khalil chapter page,
-    is dropped), then ranks by explicit-ruling hits and keeps the cap.
+    Keeps the pages that carry the asked terms (a page matching only one of
+    them, like an unrelated chapter page, is dropped). On terse matn the full
+    peak usually co-occurs on one page; on verbose commentary (Dardir) it
+    rarely does, so a two-term floor still fills the slots with relevant pages
+    while dropping the single-term noise, then ranks by explicit-ruling hits.
     """
     scored = [(i, f, finding_score(f, cores)) for i, f in enumerate(findings)]
     peak = max((s[0] for _, _, s in scored), default=0)
-    pool = [x for x in scored if x[2][0] >= peak] if peak > 0 else scored[:1]
+    floor = min(peak, 2)
+    pool = [x for x in scored if x[2][0] >= floor] if peak > 0 else scored[:1]
     pool = sorted(pool, key=lambda x: (-x[2][0], -x[2][1], x[0]))
     return [f for _, f, _ in pool[:cap]]
 

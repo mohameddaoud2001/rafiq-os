@@ -31,6 +31,17 @@ def page_hint(provenance: Optional[str]) -> Optional[int]:
     return int(m.group(2)) if m else None
 
 
+def page_hint_label(provenance: Optional[str]) -> Optional[str]:
+    """Display label for the digitization page: «ص40», or «ج2 ص40» for multi-volume texts."""
+    if not provenance:
+        return None
+    m = PAGE_HINT_RE.search(provenance)
+    if not m:
+        return None
+    vol, page = m.group(1), int(m.group(2))
+    return f"ص{page}" if vol == "01" else f"ج{int(vol)} ص{page}"
+
+
 def openiti_file_url(provenance: Optional[str]) -> Optional[str]:
     """Browse link to the exact OpenITI mARkdown file the text was digitized from."""
     m = _OPENITI_RE.search(provenance or "")
@@ -41,7 +52,7 @@ def openiti_file_url(provenance: Optional[str]) -> Optional[str]:
     repo = (century or "").rstrip("/") or _OPENITI_REPO_BY_AUTHOR.get(author)
     if not repo:
         return None
-    book_dir = re.sub(r"\.Shamela\d+$", "", re.sub(r"-ara\d+$", "", book_id))
+    book_dir = re.sub(r"\.(?:Shamela|JK|Shia)\d+(?:Vols)?$", "", re.sub(r"-ara\d+$", "", book_id))
     return f"https://github.com/OpenITI/{repo}/blob/master/data/{author}/{book_dir}/{book_id}"
 
 
@@ -89,9 +100,9 @@ def source_citation(
     if page is not None:
         parts.append(f"ج{volume} ص{page}" if volume else f"ص{page}")
     else:
-        hint = page_hint(provenance)
-        if hint:
-            parts.append(f"ص{hint} (ترقيم مبدئي - يُثبّت عند التوقيع)")
+        label = page_hint_label(provenance)
+        if label:
+            parts.append(f"{label} (ترقيم مبدئي - يُثبّت عند التوقيع)")
     if not parts:
         parts.append("المصدر غير محدد")
     return " - ".join(parts)
