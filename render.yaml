@@ -1,0 +1,24 @@
+# Render Blueprint: one-click deploy of the book-based ask app.
+# New + > Blueprint > connect mohameddaoud2001/rafiq-os (this repo).
+# Note: if a service named "rafiq-os" already exists in the account, either
+# delete it first or rename this service - otherwise the domain is taken.
+services:
+  - type: web
+    name: rafiq-os
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: RAFIQ_ENV
+        value: prod
+      - key: RAFIQ_AMIN_SECRET
+        generateValue: true
+      - key: RAFIQ_TRUSTED_HOSTS
+        value: rafiq-os.onrender.com
+      - key: RAFIQ_PUBLIC_URL
+        value: https://rafiq-os.onrender.com
+      - key: RAFIQ_LIVE
+        value: sim
+      - key: RAFIQ_ROUTER
+        value: rules
