@@ -124,6 +124,22 @@ assert '«' in fw['text'], 'answer must be compiled from verbatim quotes only'
 assert fw['quotes'] and all(q['excerpt'] for q in fw['quotes']), 'answer quotes must be verbatim excerpts'
 " && pass "book-based answer labelled" || fail "book-based answer labelled"
 
+echo "Plain-language khulasa: extractive summary first, verbatim evidence below"
+KH=$(curl -s -X POST http://localhost:8000/ask -H "Content-Type: application/json" -d '{"query":"ما حكم صلاة الجماعة","madhhab":"maliki"}')
+echo "$KH" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+k = d.get('khulasa') or ''
+assert k.startswith('بناءً على ما نقل من الكتب المذكورة'), k
+assert k.endswith('وليست فتوى معتمدة، وللفتوى المعتمدة راجع أهل العلم.'), k
+assert d.get('hukm_mubasat') in ['سنة','سنة مؤكدة','مستحب','مباح','مكروه','حرام','واجب','غير واضح'], d.get('hukm_mubasat')
+assert 'الجماع' in k, k
+findings = [f for c in d['citations'] for f in c['findings']]
+assert 0 < len(findings) <= 3, len(findings)
+assert any('p040' in f['source_id'] for f in findings), [f['source_id'] for f in findings]
+assert d['fatwa'] and d['fatwa']['text'], 'verbatim evidence layer must stay'
+" && pass "khulasa summary" || fail "khulasa summary"
+
 echo "General fiqh coverage: real excerpts beyond the Hajj pilot"
 GEN=$(curl -s -X POST http://localhost:8000/ask -H "Content-Type: application/json" -d '{"query":"ما حكم صلاة الجماعة في المسجد؟","madhhab":"hanafi"}')
 echo "$GEN" | python3 -c "
@@ -157,10 +173,12 @@ grep -q 'dir="rtl"' <<< "$PAGE" && pass "ask page rtl" || fail "ask page rtl"
 grep -Fq '/static/ask.js' <<< "$PAGE" && pass "ask page js wired" || fail "ask page js wired"
 grep -Fq 'منقول من الكتب' <<< "$PAGE" && pass "ask page book-based disclosure" || fail "ask page book-based disclosure"
 grep -Fq 'ليست فتوى مفتٍ' <<< "$PAGE" && pass "ask page not-a-fatwa note" || fail "ask page not-a-fatwa note"
+grep -Fq 'id="khulasa"' <<< "$PAGE" && pass "ask page khulasa container" || fail "ask page khulasa container"
 grep -q '<script>' <<< "$PAGE" && fail "ask page inline script" || pass "ask page no inline script"
 AJS=$(curl -s http://localhost:8000/static/ask.js)
 grep -Fq '/ask' <<< "$AJS" && grep -Fq 'textContent' <<< "$AJS" \
   && pass "ask js served" || fail "ask js served"
+grep -Fq 'اعرض النصوص الحرفية كدليل' <<< "$AJS" && pass "ask js collapsible evidence" || fail "ask js collapsible evidence"
 CSP_ASK=$(curl -s -D - -o /dev/null http://localhost:8000/ | tr -d '\r')
 grep -qi "content-security-policy:.*script-src 'self'" <<< "$CSP_ASK" && pass "ask page csp" || fail "ask page csp"
 

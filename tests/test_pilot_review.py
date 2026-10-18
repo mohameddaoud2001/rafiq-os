@@ -285,13 +285,14 @@ def test_public_ask_page_renders_book_based_disclosure(tmp_path, monkeypatch):
     assert "/static/ask.js" in r.text
     assert "<script>" not in r.text, "CSP allows no inline script"
     assert "ليست فتوى مفتٍ" in r.text, "page must say the answer is not a mufti's fatwa"
-    assert 'id="fatwa"' in r.text, "answer container must exist"
+    assert 'id="khulasa"' in r.text, "plain-language summary container must exist"
     assert "Content-Security-Policy" in r.headers
 
     js = client.get("/static/ask.js").text
     assert "/ask" in js
     assert "textContent" in js
-    assert "renderFatwa" in js
+    assert "renderKhulasa" in js
+    assert "اعرض النصوص الحرفية كدليل" in js, "verbatim evidence must be collapsible"
     assert "innerHTML" not in js, "render must be textContent-only (no HTML injection)"
 
 
@@ -336,6 +337,78 @@ def test_shareability_meta_manifest_sitemap_robots(tmp_path, monkeypatch):
     js = client.get("/static/ask.js").text
     assert "wa.me" in js and "t.me/share" in js and "twitter.com/intent" in js
     assert "innerHTML" not in js
+
+    # plain-language summary layer: extractive, templated, top 2-3 pages only
+    ask = client.post("/ask", json={"query": "ما حكم صلاة الجماعة", "madhhab": "maliki"})
+    assert ask.status_code == 200
+    d = ask.json()
+    khulasa = d.get("khulasa") or ""
+    assert khulasa.startswith("بناءً على ما نقل من الكتب المذكورة"), khulasa
+    assert khulasa.endswith("وليست فتوى معتمدة، وللفتوى المعتمدة راجع أهل العلم."), khulasa
+    assert d.get("hukm_mubasat") in {
+        "سنة",
+        "سنة مؤكدة",
+        "مستحب",
+        "مباح",
+        "مكروه",
+        "حرام",
+        "واجب",
+        "غير واضح",
+    }, d.get("hukm_mubasat")
+    findings = [f for c in d["citations"] for f in c["findings"]]
+    assert 0 < len(findings) <= 3, "only the best pages may be served"
+    assert "الجماع" in khulasa, "summary must carry the asked subject verbatim"
+
+
+def test_khulasa_is_extractive_and_detects_hukm():
+    from rafiq.core.khulasa import END, START, UNKNOWN, build_khulasa
+
+    citations = [
+        {
+            "extra": {"madhhab": "maliki"},
+            "findings": [
+                {
+                    "excerpt": "الجماعة بفرض غير جمعة سنة1 ولا تتفاضل وإنما يحصل فضلها بركعة",
+                    "work": "مختصر خليل",
+                    "madhhab": "maliki",
+                    "source_id": "khalil_salat_p040",
+                }
+            ],
+        }
+    ]
+    kh = build_khulasa(citations, "ما حكم صلاة الجماعة")
+    assert kh["hukm"] == "سنة", kh
+    assert kh["text"].startswith(START) and kh["text"].endswith(END)
+    assert "الجماعة" in kh["text"] and "سنة1" not in kh["text"]
+    assert kh["source_id"] == "khalil_salat_p040"
+
+    # negated permission is detected as haram; no keyword -> stays vague
+    neg = [
+        {
+            "extra": {"madhhab": "maliki"},
+            "findings": [
+                {
+                    "excerpt": "لا تجوز إمامة المميز في الفرض",
+                    "work": "مختصر خليل",
+                    "madhhab": "maliki",
+                    "source_id": "x1",
+                }
+            ],
+        }
+    ]
+    assert build_khulasa(neg, "ما حكم إمامة المميز")["hukm"] == "حرام"
+    vague = [
+        {
+            "extra": {"madhhab": "maliki"},
+            "findings": [
+                {"excerpt": "باب في الطهارة", "work": "x", "madhhab": "maliki", "source_id": "x2"}
+            ],
+        }
+    ]
+    kv = build_khulasa(vague, "ما حكم صلاة الجماعة")
+    assert kv["hukm"] == UNKNOWN
+    assert "النص المنقول غير كافٍ لتحديد حكم واضح" in kv["text"]
+    assert kv["text"].startswith(START) and kv["text"].endswith(END)
 
 
 def test_signoff_stores_sheikh_timestamp_edition_hash_and_reviewed_text(tmp_path, monkeypatch):

@@ -89,23 +89,36 @@
     container.appendChild(wrap);
   }
 
-  function renderFatwa(container, fatwa) {
+  var HUKM_CLASS = {
+    "حرام": "haram",
+    "مكروه": "makruh",
+    "واجب": "wajib",
+    "سنة": "sunna",
+    "سنة مؤكدة": "sunna",
+    "مستحب": "mustahabb",
+    "مباح": "mubah",
+    "غير واضح": "unknown"
+  };
+
+  function renderKhulasa(container, data) {
     clear(container);
-    if (!fatwa || !fatwa.text) return;
-    container.appendChild(el("h2", "work-title", "الجواب من الكتب"));
-    container.appendChild(el("pre", "matn", fatwa.text));
-    if (fatwa.based_on && fatwa.based_on.length) {
-      container.appendChild(el("div", "source-line", "أسانيد الجواب: " + fatwa.based_on.join(" ، ")));
-    }
+    if (!data || !data.khulasa) return;
+    container.appendChild(el("h2", "khulasa-title", "خلاصة ما نقل من الكتب"));
+    var hukm = data.hukm_mubasat || "غير واضح";
+    var badge = el("span", "badge badge-hukm " + (HUKM_CLASS[hukm] || "unknown"), hukm);
+    container.appendChild(badge);
+    container.appendChild(el("p", "khulasa-text", data.khulasa));
+    container.appendChild(el("div", "source-line",
+      "الخلاصة مستخرجة من النصوص المعروضة أسفله بالحرف فقط، وهي ليست فتوى مفتٍ."));
   }
 
   function render(data) {
     var status = document.getElementById("status");
     var bannerBox = document.getElementById("banner-box");
-    var fatwa = document.getElementById("fatwa");
+    var khulasa = document.getElementById("khulasa");
     var message = document.getElementById("message");
     var citations = document.getElementById("citations");
-    clear(status); clear(bannerBox); clear(fatwa); clear(message); clear(citations);
+    clear(status); clear(bannerBox); clear(khulasa); clear(message); clear(citations);
     status.textContent = "";
 
     if (data.blocked) {
@@ -117,15 +130,22 @@
       bannerBox.appendChild(el("div", null, b));
     });
 
-    renderFatwa(fatwa, data.fatwa);
+    renderKhulasa(khulasa, data);
 
     if (data.message) {
       message.textContent = data.message;
     }
 
     var any = false;
-    renderCitations(citations, data.citations);
-    if (citations.childNodes.length) any = true;
+    if (data.citations && data.citations.length) {
+      var evidence = el("details", "evidence");
+      evidence.appendChild(el("summary", null, "اعرض النصوص الحرفية كدليل"));
+      renderCitations(evidence, data.citations);
+      if (evidence.querySelector(".work-title")) {
+        citations.appendChild(evidence);
+        any = true;
+      }
+    }
 
     if (!any && (!data.informational || !data.informational.length)) {
       citations.appendChild(el("p", "empty-note",

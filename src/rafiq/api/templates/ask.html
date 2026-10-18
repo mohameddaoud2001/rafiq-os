@@ -31,7 +31,18 @@
   button.primary { margin-top:10px; background:var(--green); color:#fff; font-family:inherit; font-size:16px; font-weight:bold; padding:10px 18px; cursor:pointer; }
   #status { min-height:22px; font-size:14px; color:#555; margin:8px 0; }
   #banner-box div { background:#fdecea; border:1px solid var(--red); color:var(--red); padding:8px 10px; margin:6px 0; font-size:14px; }
-  #fatwa { background:#fff; border:1px solid var(--line); padding:10px; margin:10px 0; }
+  #khulasa { background:#f2f7ee; border:1px solid var(--green); padding:12px; margin:10px 0; }
+  #khulasa:empty { display:none; }
+  .khulasa-title { margin:0 0 6px; font-size:16px; color:var(--green); }
+  .khulasa-text { font-size:21px; line-height:2; font-weight:bold; margin:8px 0 4px; }
+  .badge-hukm { background:#455a64; vertical-align:middle; }
+  .badge-hukm.haram { background:var(--red); }
+  .badge-hukm.makruh { background:var(--amber); color:#111; }
+  .badge-hukm.wajib, .badge-hukm.sunna, .badge-hukm.mustahabb { background:var(--green); }
+  .badge-hukm.mubah { background:#37474f; }
+  .badge-hukm.unknown { background:#757575; }
+  details.evidence { margin-top:14px; }
+  details.evidence summary { cursor:pointer; font-weight:bold; font-size:16px; padding:6px 0; color:var(--green); }
   #message { font-size:18px; font-weight:bold; margin:10px 0; }
   .work-title { margin:16px 0 4px; font-size:16px; }
   .finding { background:#fff; border:1px solid var(--line); padding:10px; margin:8px 0; }
@@ -68,12 +79,13 @@
 </form>
 <div id="status"></div>
 <div id="banner-box"></div>
-<div id="fatwa"></div>
+<div id="khulasa"></div>
 <div id="message"></div>
 <div id="citations"></div>
 </main>
 <footer>
-  الجواب يُبنى بالنقل الحرفي من نسخ مطبوعة مذكورة مع كل نقل، فهو «منقول من الكتب
+  يبدأ الجواب بخلاصة مستخرجة من النصوص المعروضة وحدها (اقتطاع حرفي وليست إنشاء من النظام)،
+  ثم تأتي النقول الحرفية كدليل عليها من نسخ مطبوعة مذكورة مع كل نقل، فهو «منقول من الكتب
   - بلا توقيع مفتٍ» ولا يضيف النظام أي صياغة فقهية من عنده؛ فهذه الإجابات ليست فتوى مفتٍ
   معتمد ولا حكماً ملزماً، وإنما نقول من الكتب للاطلاع والتحقق - وللفتوى راجع أهل العلم.
 </footer>

@@ -30,9 +30,11 @@ from rafiq.core import analytics
 from rafiq.core.audit import append_audit, verify_chain
 from rafiq.core.dossier import DECISIONS, DOSSIER_DIR, add_decision
 from rafiq.core.guardrails import check_all_input
+from rafiq.core.khulasa import build_khulasa, rank_findings
 from rafiq.core.messages import BANNERS, DISPLAY_MODES, ERRORS, LABELS, MADHHAB_NAMES
 from rafiq.core.supervisor import get_supervisor
 from rafiq.core.verifier import verify_agent_output
+from rafiq.rag.madhhab_stores import query_cores
 from rafiq.rag.source_links import page_hint, source_citation
 from rafiq.rag.source_links import scan_url as resolve_scan_url
 
@@ -371,6 +373,16 @@ async def ask(payload: dict):
                 annotate_finding(f)
         annotated.append(o)
 
+    # Ordinary-user layer: keep only the best-matching 2-3 pages (query-term
+    # density first, then an explicit ruling keyword next to the asked subject),
+    # so the khulasa and the evidence below it are not buried under unrelated
+    # pages of a dense matn.
+    cores = query_cores(query)
+    for o in annotated:
+        if o["agent"] == "faqih" and o["findings"]:
+            cap = 2 if (o.get("extra") or {}).get("comparison") else 3
+            o["findings"] = rank_findings(o["findings"], cores, cap=cap)
+
     informational = [o for o in annotated if o["informational_only"] or not is_ruling]
     citations = [o for o in annotated if o["agent"] == "faqih" and o["findings"]]
     source_findings = [f for o in annotated if o["agent"] == "faqih" for f in o["findings"]]
@@ -436,6 +448,7 @@ async def ask(payload: dict):
 
         # For mixed, return informational now and dossier pending
         returned_info = informational if plan.intent == "mixed" else []
+        khulasa = build_khulasa(citations, query)
         response = {
             "route": plan.model_dump(),
             "informational": returned_info,
@@ -444,6 +457,8 @@ async def ask(payload: dict):
             "dossier": dossier,
             "banners": banners,
             "fatwa": build_book_answer(citations),
+            "khulasa": khulasa["text"] if khulasa else None,
+            "hukm_mubasat": khulasa["hukm"] if khulasa else None,
         }
         if not citations and not returned_info:
             response["message"] = ERRORS["not_found"]
@@ -468,6 +483,8 @@ async def ask(payload: dict):
             "message": ERRORS["not_found"],
             "banners": banners,
             "fatwa": None,
+            "khulasa": None,
+            "hukm_mubasat": None,
         }
 
     if unsigned_findings:
@@ -486,6 +503,8 @@ async def ask(payload: dict):
         "dossier": None,
         "banners": banners,
         "fatwa": None,
+        "khulasa": None,
+        "hukm_mubasat": None,
     }
 
 

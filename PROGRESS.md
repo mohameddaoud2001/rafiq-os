@@ -102,10 +102,28 @@ STATUS: IN_PROGRESS
       backups, update/monitor, NC-license rules); tests + verify.sh assert
       meta/manifest/sitemap/robots/share wiring
 
-Current step: M19 done - deploy runbook + shareability in place. Deploy target
-(domain/VPS), Search Console submission and community seeding are owner actions
-(see docs/deploy.md). Sign-off remains optional and dormant; «موثّق» marks only
-the 11 legacy signed Khalil Hajj pages. Remaining for wider reach: more
-books/chapters via gen_chapters.py, semantic retrieval, UI locales
-(EN/UR/ID/TR), CC BY-NC-SA decision for commercial use.
+- [x] M20 ordinary-user answers (owner request): ruling /ask responses get a
+      two-layer shape - `khulasa` (plain one-sentence summary: fixed START
+      «بناءً على ما نقل من الكتب المذكورة» + hukm label + contiguous verbatim
+      clause from the TOP-scored citation + fixed END «وليست فتوى معتمدة،
+      وللفتوى المعتمدة راجع أهل العلم.») and `hukm_mubasat`
+      (سنة/سنة مؤكدة/مستحب/مباح/مكروه/حرام/واجب/غير واضح) detected ONLY
+      inside the served verbatim span (keyword families, immediate-negation
+      handling, «في فرض» topic-phrase guard); conflicting pages or keyword-less
+      spans -> غير واضح + «النص المنقول غير كافٍ لتحديد حكم واضح»; findings
+      trimmed to the 2-3 density-peak pages (Khalil noise pages dropped,
+      p040 first for «ما حكم صلاة الجماعة»); no LLM used anywhere - fully
+      deterministic extraction; ask page shows the khulasa box first with a
+      hukm badge, verbatim evidence collapsed under «اعرض النصوص الحرفية
+      كدليل»; every banner/label/citation field stays intact; tests +
+      verify.sh assert khulasa shape, hukm enum, ≤3 findings, panel wiring
+
+Current step: M20 done - deploy live on Render (https://rafiq-os.onrender.com,
+health/google-file/sitemap/manifest verified) and khulasa answers serve
+ordinary users. Owner actions left: Search Console Verify + sitemap submit,
+Render health-check path /health, optional HF Space (docs/deploy.md §8).
+Sign-off remains optional and dormant; «موثّق» marks only the 11 legacy signed
+Khalil Hajj pages. Remaining for wider reach: more books/chapters via
+gen_chapters.py, semantic retrieval, UI locales (EN/UR/ID/TR), CC BY-NC-SA
+decision for commercial use.
 Resume: bash scripts/verify.sh
