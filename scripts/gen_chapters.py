@@ -14,6 +14,8 @@ or override with $RAFIQ_OPENITI_SRC):
   https://raw.githubusercontent.com/OpenITI/0275AH/master/data/0264IbnYahyaMuzani/0264IbnYahyaMuzani.Mukhtasar/0264IbnYahyaMuzani.Mukhtasar.Shamela0001661-ara1  # noqa: E501
   https://raw.githubusercontent.com/OpenITI/0625AH/master/data/0620IbnQudamaMaqdisi/0620IbnQudamaMaqdisi.CumdatFiqh/0620IbnQudamaMaqdisi.CumdatFiqh.Shamela0011315-ara1  # noqa: E501
   https://raw.githubusercontent.com/OpenITI/1225AH/master/data/1201AhmadDardirAbuBarakat/1201AhmadDardirAbuBarakat.SharhKabir/1201AhmadDardirAbuBarakat.SharhKabir.JK000193-ara1  # noqa: E501
+  https://raw.githubusercontent.com/OpenITI/1000AH/master/data/1000CabdBariAshmawi/1000CabdBariAshmawi.MatnCashmawiyya/1000CabdBariAshmawi.MatnCashmawiyya.Shamela0037326-ara1  # noqa: E501
+  https://raw.githubusercontent.com/OpenITI/0400AH/master/data/0386IbnAbiZaydQayrawani/0386IbnAbiZaydQayrawani.Risala/0386IbnAbiZaydQayrawani.Risala.Shamela0011373-ara1  # noqa: E501
 
 Usage: uv run python scripts/gen_chapters.py
 Writes data/corpus/<madhhab>/candidates/<work>_chapters.jsonl (additive;
@@ -375,6 +377,99 @@ WORKS = [
             ("كتاب الأطعمة", "cumda_atima", ["طعام", "أطعمة", "ذكاة", "لحم"]),
             ("كتاب الصيد", "cumda_sayd", ["صيد", "ذبح", "ذكاة"]),
             ("كتاب الأيمان", "cumda_ayman", ["يمين", "أيمان", "نذر", "كفارة"]),
+        ],
+    ),
+    # Beginner layer (M22): short readable Maliki matn. ابن عاشر «المرشد المعين»
+    # has no OpenITI digitization (checked the release index), so the second
+    # easy text is ابن أبي زيد «متن الرسالة» - the classic beginner matn.
+    # Files live under data/corpus/easy/ but rows are maliki, so
+    # sync_candidates routes them into the maliki store.
+    dict(
+        key="ashmawiya",
+        input=SRC / "ashmawiyya.txt",
+        output=ROOT / "data/corpus/easy/candidates/ashmawiya_chapters.jsonl",
+        madhhab="maliki",
+        top_re=r"^### \| (باب|فصل|مقدمة)",
+        provenance="OpenITI:1000AH/1000CabdBariAshmawi.MatnCashmawiyya.Shamela0037326-ara1 sha256:dfc72bc3e962ef8b425242ce279fa7c0c5dc5956faf51d1aea3f6f6e648b0bb5",
+        work="متن العشماوية في مذهب الإمام مالك",
+        author="عبد الباري بن أحمد العشماوي القاهري المالكي (المتوفى: ق 10هـ)",
+        edition="شركة الشمرلي للطبع والنشر، مصر (بلا تاريخ)",
+        chapters=[
+            ("باب نواقض الوضوء", "ashmawiya_nawaqid", ["طهارة", "وضوء", "نواقض"]),
+            (
+                "باب أقسام المياه التي يجوز منها الوضوء",
+                "ashmawiya_miyah",
+                ["طهارة", "ماء", "وضوء"],
+            ),
+            ("باب فرائض الغسل وسننه وفضائله", "ashmawiya_ghusl", ["طهارة", "غسل", "جنابة"]),
+            ("باب التيمم", "ashmawiya_tayammum", ["طهارة", "تيمم"]),
+            ("باب شروط الصلاة", "ashmawiya_salat", ["صلاة", "أوقات", "قبلة"]),
+            ("باب مندوبات الصلاة", "ashmawiya_mandubat", ["صلاة", "سنن", "مندوبات"]),
+            ("باب مفسدات الصلاة", "ashmawiya_mufsidat", ["صلاة", "مفسدات"]),
+            ("باب سجود السهو", "ashmawiya_sahw", ["صلاة", "سهو", "سجود"]),
+            (
+                "باب في الإمامة",
+                "ashmawiya_imama",
+                ["صلاة", "إمامة", "جماعة", "اقتداء", "مأموم"],
+            ),
+            ("باب صلاة الجمعة", "ashmawiya_jumua", ["صلاة", "جمعة", "جماعة", "خطبة"]),
+            ("باب صلاة الجنازة", "ashmawiya_janaza", ["صلاة", "جنازة", "ميت"]),
+            ("باب الصيام", "ashmawiya_siyam", ["صوم", "رمضان", "قضاء", "كفارة"]),
+        ],
+    ),
+    dict(
+        key="risala",
+        input=SRC / "risala.txt",
+        output=ROOT / "data/corpus/easy/candidates/risala_chapters.jsonl",
+        madhhab="maliki",
+        top_re=r"^### \| باب",
+        provenance="OpenITI:0400AH/0386IbnAbiZaydQayrawani.Risala.Shamela0011373-ara1 sha256:f20a50969199e69238e87f1949a5c9a0a725d586a4ad409151363702043258ab",
+        work="متن الرسالة",
+        author="أبو محمد عبد الله بن أبي زيد القيرواني المالكي (ت 386هـ)",
+        edition="بيانات الطبعة غير مذكورة في الرقمنة",
+        chapters=[
+            (
+                "باب ما يجب منه الوضوء والغسل",
+                "risala_nawaqid",
+                ["طهارة", "وضوء", "نواقض"],
+            ),
+            (
+                "باب طهارة الماء والثوب والبقعة",
+                "risala_miyah",
+                ["طهارة", "ماء", "نجاسة", "لباس"],
+            ),
+            (
+                "باب صفة الوضوء ومسنونه ومفروضه",
+                "risala_wudu",
+                ["طهارة", "وضوء", "استنجاء"],
+            ),
+            ("باب في الغسل", "risala_ghusl", ["طهارة", "غسل", "جنابة"]),
+            ("باب فيمن لم يجد الماء وصفة التيمم", "risala_tayammum", ["طهارة", "تيمم"]),
+            ("باب في المسح على الخفين", "risala_mash", ["طهارة", "مسح", "خف"]),
+            ("باب في أوقات الصلاة وأسمائها", "risala_awqat", ["صلاة", "أوقات"]),
+            ("باب في الأذان والإقامة", "risala_adhan", ["صلاة", "أذان", "إقامة"]),
+            ("باب صفة العمل في الصلوات المفروضة", "risala_salat", ["صلاة", "نوافل", "سنن", "سجود"]),
+            (
+                "باب في الإمامة وحكم الإمام والماموم",
+                "risala_imama",
+                ["صلاة", "إمامة", "جماعة", "مأموم"],
+            ),
+            ("باب جامع في الصلاة", "risala_jami", ["صلاة", "جماعة"]),
+            ("باب في سجود القرآن", "risala_sujud", ["صلاة", "سجود", "قرآن"]),
+            ("باب في صلاة السفر", "risala_safar", ["صلاة", "سفر", "قصر"]),
+            ("باب في صلاة الجمعة", "risala_jumua", ["صلاة", "جمعة", "جماعة", "خطبة"]),
+            ("باب في صلاة الخوف", "risala_khawf", ["صلاة", "خوف"]),
+            ("باب في صلاة العيدين والتكبير أيام منى", "risala_eidayn", ["صلاة", "عيد", "تكبير"]),
+            ("باب في صلاة الخسوف", "risala_khusuf", ["صلاة", "خسوف", "كسوف"]),
+            ("باب في صلاة الاستسقاء", "risala_istisqa", ["صلاة", "استسقاء", "مطر"]),
+            ("باب ما يفعل بالمحتضر وفي غسل الميت", "risala_mawt", ["جنازة", "ميت", "غسل"]),
+            ("باب في الصلاة على الجنائز والدعاء للميت", "risala_janaza", ["صلاة", "جنازة", "ميت"]),
+            ("باب في الصيام", "risala_siyam", ["صوم", "رمضان", "قضاء", "كفارة"]),
+            ("باب في الاعتكاف", "risala_itikaf", ["صوم", "اعتكاف"]),
+            ("باب في زكاة العين والحرث والماشية", "risala_zakat", ["زكاة", "نصاب", "معدن"]),
+            ("باب في زكاة الماشية", "risala_zakat_mal", ["زكاة", "ماشية", "أنعام"]),
+            ("باب في زكاة الفطر", "risala_zakat_fitr", ["زكاة", "فطر"]),
+            ("باب في الحج والعمرة", "risala_hajj", ["حج", "عمرة", "إحرام", "طواف", "سعي"]),
         ],
     ),
 ]

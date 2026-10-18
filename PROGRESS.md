@@ -142,3 +142,22 @@ Resume: bash scripts/verify.sh
       - on commentary-heavy results the summary honestly stays «غير واضح»
       with the nearest verbatim clause; retrieval for maliki questions now
       leads with readable Dardir prose. Tests 69 + verify.sh updated.
+- [x] M22 beginner layer + flat citations API (owner request): /ask now
+      returns `citations` as a FLAT list of findings (no nested agent
+      wrapper) - each item directly carries source_id, work, page_hint,
+      page_hint_label, scan_url, source_label, label - so ask.js and API
+      consumers read data.citations[0].scan_url. Beginner matn layer added
+      under data/corpus/easy/ (rows route into the maliki store by their own
+      madhhab, x1.5 store boost + rank bonus): متن العشماوية (Shamela0037326,
+      شركة الشمرلي - 15 page-passages) and متن الرسالة لابن أبي زيد القيرواني
+      (Shamela0011373 - 62 page-passages). ابن عاشر «المرشد المعين» has NO
+      OpenITI digitization (release index checked), so الرسالة is the
+      second easy text - documented substitution. Faqih now serves the
+      verbatim ruling sentence (served_excerpt) when the default window
+      misses it; khulasa detects «سنة مؤكدة» across parenthetical glosses
+      («… غير جمعة سنة ) مؤكدة»), «بفرض» qualifier guard, and the rank
+      ladder prefers «سنة مؤكدة» on the asked term; top-ranked resolved page
+      wins the ladder (secondary page's neighbouring «يكره» cannot veto).
+      Acceptance: «ما حكم صلاة الجماعة في المسجد؟» → hukm «سنة مؤكدة»,
+      khulasa يحوي «سنة», citations[0] = dardir_salat_p319 with OpenITI
+      scan_url + «ص319» label; tests 70 + verify.sh (68 checks) green.

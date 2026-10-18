@@ -91,8 +91,9 @@ Only real scholars can fill this in - the system provides the mechanism, not the
 
 ## Real-text corpus (all four madhhabs)
 
-`data/corpus/<madhhab>/candidates/*.jsonl` hold real text from real digitized
-print editions, one passage per print page, awaiting scholar sign-off at
+`data/corpus/<madhhab>/candidates/*.jsonl` (plus `data/corpus/easy/candidates/`
+for the beginner matn layer) hold real text from real digitized print editions,
+one passage per print page, awaiting scholar sign-off at
 `/review` (maliki is cited for the signed pages; the others await review):
 
 | Madhhab | Work | Edition | Pages |
@@ -100,6 +101,8 @@ print editions, one passage per print page, awaiting scholar sign-off at
 | maliki | مختصر خليل (كتاب الحج) | دار الحديث، القاهرة، ط1 1426هـ/2005م | 11 (signed) |
 | maliki | مختصر خليل (الطهارة، الصلاة، الزكاة، الصيام، النكاح، البيوع، ...) | دار الحديث، القاهرة، ط1 1426هـ/2005م | 123 |
 | maliki | الشرح الكبير على مختصر خليل للدردير (الطهارة … الوقف والهبة) | دار الفكر، بيروت، 4 مجلدات، تح: محمد عليش | 1302 |
+| maliki | متن العشماوية (طهارة، صلاة، جمعة، جنازة، صيام - طبقة المبتدئين) | شركة الشمرلي للنشر، مصر (بلا تاريخ) | 15 |
+| maliki | متن الرسالة لابن أبي زيد القيرواني (طهارة، صلاة، جنازة، صيام، زكاة، حج - طبقة المبتدئين) | بيانات الطبعة غير مذكورة في الرقمنة | 62 |
 | hanafi | الهداية في شرح بداية المبتدي (كتاب الحج) | دار إحياء التراث العربي، بيروت، ط1 1425هـ/2004م | 52 |
 | hanafi | الهداية (الطهارات، الصلاة، الزكاة، الصوم، النكاح، البيوع، ...) | دار إحياء التراث العربي، بيروت، ط1 1425هـ/2004م | 235 |
 | shafii | منهاج الطالبين (كتاب الحج) | دار الفكر، ط1 1425هـ/2005م | 12 |

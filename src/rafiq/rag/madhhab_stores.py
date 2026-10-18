@@ -131,6 +131,10 @@ def insert_passage(madhhab: str, passage: Passage):
 
 MADHHABS = ["maliki", "shafii", "hanafi", "hanbali"]
 
+# Beginner matn layer (data/corpus/easy/) - short readable texts whose
+# passages get a ranking bonus so one-line rulings surface first.
+_EASY_ID_PREFIXES = ("ashmawiya_", "ibn_ashir_", "risala_")
+
 _PASSAGE_COLS = (
     "id, madhhab, work, author, edition, volume, page, text, topic_tags, "
     "mutamad, verified, provenance, license, verified_by, verified_at"
@@ -286,6 +290,10 @@ def _ranked_core_search(
         score, tag_hits, _matched = _score_row(r, cores, idf)
         if not score:
             continue
+        if r[0].startswith(_EASY_ID_PREFIXES):
+            # Beginner matn layer: short readable passages whose job is to
+            # carry one-line rulings - rank them ahead of dense commentary.
+            score *= 1.5
         if r[0] in strict_ids:
             score *= 1.05
         elif not tag_hits:
@@ -441,6 +449,42 @@ def sync_candidates() -> int:
                         _insert_passage_conn(conn, p)
                         existing.add(p.id)
                         added += 1
+            conn.commit()
+        finally:
+            conn.close()
+    added += _sync_easy_candidates(corpus_root)
+    return added
+
+
+def _sync_easy_candidates(corpus_root: pathlib.Path) -> int:
+    """Load data/corpus/easy/candidates/*.jsonl, routing rows by madhhab."""
+    from rafiq.rag.ingest import validate_passage
+
+    easy_dir = corpus_root / "easy" / "candidates"
+    if not easy_dir.is_dir():
+        return 0
+    by_madhhab: Dict[str, list] = {}
+    for path in sorted(easy_dir.glob("*.jsonl")):
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                p = validate_passage(json.loads(line))
+                if p.madhhab in MADHHABS:
+                    by_madhhab.setdefault(p.madhhab, []).append(p)
+    added = 0
+    for madhhab, passages in by_madhhab.items():
+        if not get_db_path(madhhab).exists():
+            init_db(madhhab)
+        conn = sqlite3.connect(get_db_path(madhhab))
+        existing = {row[0] for row in conn.execute("SELECT id FROM passages")}
+        try:
+            for p in passages:
+                if p.id in existing:
+                    continue
+                _insert_passage_conn(conn, p)
+                existing.add(p.id)
+                added += 1
             conn.commit()
         finally:
             conn.close()

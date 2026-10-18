@@ -136,7 +136,7 @@ def test_ask_unsigned_served_only_as_matn_with_mandatory_banner(tmp_path, monkey
     data = r.json()
 
     assert data["citations"], "dev/pilot must return the retrieved excerpts verbatim"
-    finding = data["citations"][0]["findings"][0]
+    finding = data["citations"][0]
     assert finding["verified"] is False
     assert finding["label"] == "منقول من الكتب"
     assert finding["display_mode"] == "matn"
@@ -171,13 +171,13 @@ def test_ask_signed_page_labelled_only_after_signoff(tmp_path, monkeypatch):
     sign_off("hanafi", target.id, "sheikh_test", {**GOOD_FIELDS, "page": 42})
 
     data = client.post("/ask", json={"query": "ما هي مواقيت الإحرام؟", "madhhab": "hanafi"}).json()
-    matches = [f for c in data["citations"] for f in c["findings"] if f["source_id"] == target.id]
+    matches = [f for f in data["citations"] if f["source_id"] == target.id]
     assert matches, "signed page must be returned"
     assert matches[0]["verified"] is True
     assert matches[0]["label"] == "موثّق"
     assert matches[0]["display_mode"] == "signed"
     # unsigned siblings are still labelled distinctly (not موثّق)
-    unsigned = [f for c in data["citations"] for f in c["findings"] if not f["verified"]]
+    unsigned = [f for f in data["citations"] if not f["verified"]]
     assert all(f["label"] == "منقول من الكتب" for f in unsigned)
 
 
@@ -217,9 +217,7 @@ def test_analytics_log_unsigned_hits_and_order_queue(tmp_path, monkeypatch):
     _prepare(tmp_path, monkeypatch)
     client = TestClient(app)
     data = client.post("/ask", json={"query": "ما هي مواقيت الإحرام؟", "madhhab": "hanafi"}).json()
-    hit_ids = {
-        f["source_id"] for c in data["citations"] for f in c["findings"] if not f["verified"]
-    }
+    hit_ids = {f["source_id"] for f in data["citations"] if not f["verified"]}
     assert hit_ids
 
     hits = analytics.load_unsigned_hits()
@@ -355,7 +353,7 @@ def test_shareability_meta_manifest_sitemap_robots(tmp_path, monkeypatch):
         "واجب",
         "غير واضح",
     }, d.get("hukm_mubasat")
-    findings = [f for c in d["citations"] for f in c["findings"]]
+    findings = d["citations"]
     assert 0 < len(findings) <= 3, "only the best pages may be served"
     assert "جماع" in khulasa, "summary must carry the asked subject stem verbatim"
 
@@ -363,37 +361,44 @@ def test_shareability_meta_manifest_sitemap_robots(tmp_path, monkeypatch):
 def test_khulasa_is_extractive_and_detects_hukm():
     from rafiq.core.khulasa import END, START, UNKNOWN, build_khulasa
 
-    citations = [
+    findings = [
         {
-            "extra": {"madhhab": "maliki"},
-            "findings": [
-                {
-                    "excerpt": "الجماعة بفرض غير جمعة سنة1 ولا تتفاضل وإنما يحصل فضلها بركعة",
-                    "work": "مختصر خليل",
-                    "madhhab": "maliki",
-                    "source_id": "khalil_salat_p040",
-                }
-            ],
+            "excerpt": "الجماعة بفرض غير جمعة سنة1 ولا تتفاضل وإنما يحصل فضلها بركعة",
+            "work": "مختصر خليل",
+            "madhhab": "maliki",
+            "source_id": "khalil_salat_p040",
         }
     ]
-    kh = build_khulasa(citations, "ما حكم صلاة الجماعة")
+    kh = build_khulasa(findings, "ما حكم صلاة الجماعة")
     assert kh["hukm"] == "سنة", kh
     assert kh["text"].startswith(START) and kh["text"].endswith(END)
     assert "الجماعة" in kh["text"] and "سنة1" not in kh["text"]
     assert kh["source_id"] == "khalil_salat_p040"
 
+    # Dardir wording: the ruling keyword sits after a parenthetical gloss, and
+    # the «بفرض» qualifier must not be misread as the ruling.
+    dardir = [
+        {
+            "excerpt": (
+                "الصلاة والسلام ( الجماعة ) أي فعل الصلاة جماعة أي بإمام ومأموم "
+                "( بفرض ) ولو فائتة ( غير جمعة سنة ) مؤكدة وأما غير الفرض فمنه"
+            ),
+            "work": "الشرح الكبير على مختصر خليل",
+            "madhhab": "maliki",
+            "source_id": "dardir_salat_p319",
+        }
+    ]
+    kd = build_khulasa(dardir, "ما حكم صلاة الجماعة في المسجد؟")
+    assert kd["hukm"] == "سنة مؤكدة", kd
+    assert "سنة" in kd["text"], kd["text"]
+
     # negated permission is detected as haram; no keyword -> stays vague
     neg = [
         {
-            "extra": {"madhhab": "maliki"},
-            "findings": [
-                {
-                    "excerpt": "لا تجوز إمامة المميز في الفرض",
-                    "work": "مختصر خليل",
-                    "madhhab": "maliki",
-                    "source_id": "x1",
-                }
-            ],
+            "excerpt": "لا تجوز إمامة المميز في الفرض",
+            "work": "مختصر خليل",
+            "madhhab": "maliki",
+            "source_id": "x1",
         }
     ]
     assert build_khulasa(neg, "ما حكم إمامة المميز")["hukm"] == "حرام"
@@ -401,43 +406,46 @@ def test_khulasa_is_extractive_and_detects_hukm():
     # subject: it must not be read as a ruling on the question.
     gloss = [
         {
-            "extra": {"madhhab": "maliki"},
-            "findings": [
-                {
-                    "excerpt": (
-                        "ولا تبتدأ صلاة فرضا أو نفلا من فذ أو جماعة أي يحرم ابتداؤها بالمسجد"
-                    ),
-                    "work": "الشرح الكبير",
-                    "madhhab": "maliki",
-                    "source_id": "dardir_salat_p323",
-                }
-            ],
+            "excerpt": ("ولا تبتدأ صلاة فرضا أو نفلا من فذ أو جماعة أي يحرم ابتداؤها بالمسجد"),
+            "work": "الشرح الكبير",
+            "madhhab": "maliki",
+            "source_id": "dardir_salat_p323",
         }
     ]
     assert build_khulasa(gloss, "ما حكم صلاة الجماعة")["hukm"] == UNKNOWN
     # a page without the specific asked subject must not donate a hukm
     off = [
         {
-            "extra": {"madhhab": "maliki"},
-            "findings": [
-                {
-                    "excerpt": "جلوسه في الصلاة ويخرج من الكراهة بتغيير هيئته",
-                    "work": "الشرح الكبير",
-                    "madhhab": "maliki",
-                    "source_id": "dardir_salat_p332",
-                }
-            ],
+            "excerpt": "جلوسه في الصلاة ويخرج من الكراهة بتغيير هيئته",
+            "work": "الشرح الكبير",
+            "madhhab": "maliki",
+            "source_id": "dardir_salat_p332",
         }
     ]
     assert build_khulasa(off, "ما حكم صلاة الجماعة")["hukm"] == UNKNOWN
-    vague = [
+    # a top page whose ruling resolves wins even when a secondary page's
+    # neighbouring مسألة carries a different keyword (rank order decides)
+    ladder = [
         {
-            "extra": {"madhhab": "maliki"},
-            "findings": [
-                {"excerpt": "باب في الطهارة", "work": "x", "madhhab": "maliki", "source_id": "x2"}
-            ],
-        }
+            "excerpt": (
+                "الصلاة والسلام ( الجماعة ) أي فعل الصلاة جماعة أي بإمام ومأموم "
+                "( بفرض ) ولو فائتة ( غير جمعة سنة ) مؤكدة وأما غير الفرض فمنه"
+            ),
+            "work": "الشرح الكبير على مختصر خليل",
+            "madhhab": "maliki",
+            "source_id": "dardir_salat_p319",
+        },
+        {
+            "excerpt": "قام مقام الجماعة ويكره في كل مسجد له إمام راتب أن تجمع فيه الصلاة",
+            "work": "متن الرسالة",
+            "madhhab": "maliki",
+            "source_id": "risala_imama_p035",
+        },
     ]
+    kl = build_khulasa(ladder, "ما حكم صلاة الجماعة في المسجد؟")
+    assert kl["hukm"] == "سنة مؤكدة", kl
+    assert kl["source_id"] == "dardir_salat_p319"
+    vague = [{"excerpt": "باب في الطهارة", "work": "x", "madhhab": "maliki", "source_id": "x2"}]
     kv = build_khulasa(vague, "ما حكم صلاة الجماعة")
     assert kv["hukm"] == UNKNOWN
     assert "النص المنقول غير كافٍ لتحديد حكم واضح" in kv["text"]

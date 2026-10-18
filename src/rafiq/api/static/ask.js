@@ -50,17 +50,16 @@
   }
 
   function renderCitations(container, citations) {
-    (citations || []).forEach(function (cit) {
-      var findings = cit.findings || [];
-      if (!findings.length) return;
-      var mh = (cit.extra && cit.extra.madhhab) || findings[0].madhhab || "";
-      var head = el("h2", "work-title",
-        (MADHHAB_NAMES[mh] || mh) + " - " + (findings[0].work || ""));
-      if (cit.extra && cit.extra.comparison) head.textContent += " (مقارنة)";
-      container.appendChild(head);
-      findings.forEach(function (f) {
-        container.appendChild(findingCard(f));
-      });
+    var lastKey = "";
+    (citations || []).forEach(function (f) {
+      var mh = f.madhhab || "";
+      var key = mh + "|" + (f.work || "");
+      if (key !== lastKey) {
+        container.appendChild(el("h2", "work-title",
+          (MADHHAB_NAMES[mh] || mh) + " - " + (f.work || "")));
+        lastKey = key;
+      }
+      container.appendChild(findingCard(f));
     });
   }
 

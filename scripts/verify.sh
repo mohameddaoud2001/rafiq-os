@@ -104,11 +104,11 @@ echo "$CIT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 assert d['citations'], 'no citations returned'
-assert any(not f['verified'] for c in d['citations'] for f in c['findings']), 'no unsigned findings'
+assert any(not f['verified'] for f in d['citations']), 'no unsigned findings'
 assert any('ليست فتوى' in b for b in d['banners']), 'missing not-a-fatwa disclosure banner'
 assert any(b.startswith('منقول من الكتب - بلا توقيع مفتٍ - المصدر:') for b in d['banners']), 'missing per-source book banner'
-assert any(f['label'] == 'منقول من الكتب' for c in d['citations'] for f in c['findings'] if not f['verified']), 'unsigned findings must be labelled منقول من الكتب'
-assert all((f['provenance'] or '').startswith('OpenITI:') for c in d['citations'] for f in c['findings']), 'dev seed placeholder leaked into served findings'
+assert any(f['label'] == 'منقول من الكتب' for f in d['citations'] if not f['verified']), 'unsigned findings must be labelled منقول من الكتب'
+assert all((f['provenance'] or '').startswith('OpenITI:') for f in d['citations']), 'dev seed placeholder leaked into served findings'
 " && pass "citations labelled" || fail "citations labelled"
 
 echo "Extractive book answer (fatwa) with disclaimer"
@@ -125,18 +125,22 @@ assert fw['quotes'] and all(q['excerpt'] for q in fw['quotes']), 'answer quotes 
 " && pass "book-based answer labelled" || fail "book-based answer labelled"
 
 echo "Plain-language khulasa: extractive summary first, verbatim evidence below"
-KH=$(curl -s -X POST http://localhost:8000/ask -H "Content-Type: application/json" -d '{"query":"ما حكم صلاة الجماعة","madhhab":"maliki"}')
+KH=$(curl -s -X POST http://localhost:8000/ask -H "Content-Type: application/json" -d '{"query":"ما حكم صلاة الجماعة في المسجد؟","madhhab":"maliki"}')
 echo "$KH" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 k = d.get('khulasa') or ''
 assert k.startswith('بناءً على ما نقل من الكتب المذكورة'), k
 assert k.endswith('وليست فتوى معتمدة، وللفتوى المعتمدة راجع أهل العلم.'), k
-assert d.get('hukm_mubasat') in ['سنة','سنة مؤكدة','مستحب','مباح','مكروه','حرام','واجب','غير واضح'], d.get('hukm_mubasat')
+assert d.get('hukm_mubasat') in ['سنة','سنة مؤكدة'], d.get('hukm_mubasat')
+assert 'سنة' in k, k
 assert 'جماع' in k, k
-findings = [f for c in d['citations'] for f in c['findings']]
+findings = d['citations']
 assert 0 < len(findings) <= 3, len(findings)
 assert any(f['source_id'].startswith(('khalil_salat', 'dardir_salat')) for f in findings), [f['source_id'] for f in findings]
+assert any(f['source_id'].startswith(('ashmawiya_', 'risala_')) for f in findings), 'beginner matn layer must surface: %s' % [f['source_id'] for f in findings]
+assert findings[0].get('scan_url', '').startswith('https://github.com/OpenITI'), findings[0].get('scan_url')
+assert findings[0].get('page_hint_label'), 'citation without human page label'
 assert d['fatwa'] and d['fatwa']['text'], 'verbatim evidence layer must stay'
 " && pass "khulasa summary" || fail "khulasa summary"
 
@@ -146,9 +150,9 @@ echo "$GEN" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 assert d['citations'], 'no citations for general fiqh query'
-ids = [f['source_id'] for c in d['citations'] for f in c['findings']]
+ids = [f['source_id'] for f in d['citations']]
 assert any(i.startswith('hidaya_') for i in ids), ids
-assert all((f['provenance'] or '').startswith('OpenITI:') for c in d['citations'] for f in c['findings'])
+assert all((f['provenance'] or '').startswith('OpenITI:') for f in d['citations'])
 " && pass "general fiqh query served from Hidaya" || fail "general fiqh query served from Hidaya"
 
 echo "Better answers: relevance ranking + windowed verbatim excerpt"
@@ -157,7 +161,7 @@ echo "$RANK" | python3 -c "
 import sys, json, re
 d = json.load(sys.stdin)
 assert d['citations'], 'no citations for zakat nisab query'
-f = d['citations'][0]['findings'][0]
+f = d['citations'][0]
 assert f['source_id'].startswith(('muzani_zakat', 'minhaj_zakat')), f['source_id']
 assert f.get('page_hint'), 'finding without page hint from provenance'
 assert len(f['excerpt']) <= 560, 'excerpt must be windowed, not the whole page'

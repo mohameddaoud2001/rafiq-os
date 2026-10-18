@@ -72,7 +72,7 @@ def test_ask_returns_labelled_unsigned_citations():
     data = r.json()
     assert data["dossier"] is not None
     assert data["citations"], "unsigned excerpts must be returned in pilot/dev"
-    findings = [f for c in data["citations"] for f in c["findings"]]
+    findings = data["citations"]
     assert any(not f["verified"] for f in findings)
     f = next(f for f in findings if not f["verified"])
     assert f["source_id"]
@@ -102,12 +102,40 @@ def test_ask_serves_book_based_answer_labelled_in_prod(monkeypatch):
     monkeypatch.setattr(settings, "RAFIQ_ENV", "prod")
     data = client.post("/ask", json={"query": "ما حكم من ترك الوضوء؟", "madhhab": "maliki"}).json()
     assert data["citations"], "book text must be served in prod too (no sign-off requirement)"
-    findings = [f for c in data["citations"] for f in c["findings"]]
+    findings = data["citations"]
     assert any(not f["verified"] for f in findings)
     assert all((f["provenance"] or "").startswith("OpenITI:") for f in findings)
     assert any(b.startswith("منقول من الكتب - بلا توقيع مفتٍ - المصدر:") for b in data["banners"])
     assert BANNERS["book_based_answer"] in data["banners"]
     assert data["fatwa"] and BANNERS["book_based_answer"] in data["fatwa"]["text"]
+
+
+def test_ask_citations_flat_with_scan_url_and_easy_layer():
+    # M22 contract: /ask returns citations as a FLAT list of findings, each
+    # carrying scan_url + page_hint_label; the beginner matn layer (العشماوية /
+    # الرسالة) is merged into the maliki store and surfaces in the ranking.
+    from fastapi.testclient import TestClient
+
+    from rafiq.api.main import app
+    from rafiq.rag.madhhab_stores import sync_candidates
+
+    _fresh_corpus()
+    sync_candidates()
+    client = TestClient(app)
+    data = client.post(
+        "/ask", json={"query": "ما حكم صلاة الجماعة في المسجد؟", "madhhab": "maliki"}
+    ).json()
+    cit = data["citations"]
+    assert cit, "no citations"
+    assert all("findings" not in f for f in cit), "citations must be flat findings"
+    top = cit[0]
+    assert top["source_id"].startswith(("dardir_salat", "khalil_salat", "ashmawiya_", "risala_"))
+    assert (top["scan_url"] or "").startswith("https://github.com/OpenITI"), top["scan_url"]
+    assert top["page_hint_label"], "finding without human page label"
+    ids = [f["source_id"] for f in cit]
+    assert any(i.startswith(("ashmawiya_", "risala_")) for i in ids), ids
+    assert data["hukm_mubasat"] in ("سنة", "سنة مؤكدة"), data["hukm_mubasat"]
+    assert "سنة" in (data["khulasa"] or ""), data["khulasa"]
 
 
 def test_faqih_serves_real_book_text_in_all_envs(monkeypatch):

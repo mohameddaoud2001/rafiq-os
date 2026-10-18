@@ -1,3 +1,4 @@
+from rafiq.core.khulasa import has_resolved_hukm, served_excerpt
 from rafiq.core.messages import BANNERS
 from rafiq.core.state import AgentOutput, Finding
 from rafiq.rag.arabic import matched_window
@@ -32,10 +33,18 @@ def faqih_agent(query: str, madhhab: str = "maliki", comparison: bool = False) -
     cores = query_cores(query)
     findings = []
     for p in results:
+        excerpt = matched_window(p.text, cores)
+        # When the default window covers the asked terms but misses the page's
+        # explicit ruling sentence ("الجماعة … سنة مؤكدة" mid-page), serve the
+        # ruling slice instead - still verbatim, only characters are sliced.
+        if not has_resolved_hukm(excerpt, cores):
+            span = served_excerpt(p.text, cores)
+            if span:
+                excerpt = span
         findings.append(
             Finding(
                 source_id=p.id,
-                excerpt=matched_window(p.text, cores),
+                excerpt=excerpt,
                 work=p.work,
                 author=p.author,
                 edition=p.edition,

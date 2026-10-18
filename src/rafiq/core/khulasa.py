@@ -66,6 +66,26 @@ _NOUN_KEYWORDS = {
     "حلال",
 }
 _PREFIXES = ("وال", "فال", "ال", "و", "ف")
+# Glued «بـ» qualifiers: «الجماعة بفرض غير جمعة سنة» - بفرض is a condition
+# («when obligatory»), not the ruling; the real hukm follows it.
+_QUALIFIER_WAJIB = (
+    "بفرض",
+    "بالفرض",
+    "بفريضة",
+    "بالفريضة",
+    "بوجب",
+    "بوجوب",
+    "وبفرض",
+    "وبالفرض",
+    "وبفريضة",
+    "وبالفريضة",
+    "وبوجب",
+    "وبوجوب",
+)
+# The ruling sentence may carry a parenthetical gloss between the subject and
+# the keyword («( الجماعة ) أي فعل الصلاة جماعة … ( غير جمعة سنة ) مؤكدة»),
+# so the scan window is sentence-sized, with the guards below keeping it safe.
+_HUKM_AFTER = 24
 _TOKEN_RE = re.compile(r"\S+")
 _GLUED_DIGITS_RE = re.compile(r"([\u0621-\u064a])[0-9\u0660-\u0669\u06f0-\u06f9]+")
 
@@ -99,6 +119,17 @@ def _matched_keyword(bare: str):
     return max(hits, key=lambda fk: len(fk[1]))
 
 
+def _followed_by(tokens: list, j: int, prefix: str) -> bool:
+    """True when the next letter-carrying token (skipping «)»/«(»/digits-only)
+    starts with prefix: «( غير جمعة سنة ) مؤكدة» still reads as سنة مؤكدة."""
+    for k in range(j + 1, min(len(tokens), j + 3)):
+        b = _bare(tokens[k])
+        if not b:
+            continue
+        return b.startswith(prefix)
+    return False
+
+
 def _hukm_hits_detail(tokens: list) -> list:
     """[(index, family, is_noun_form)] hits in a token span, negation handled."""
     hits = []
@@ -110,7 +141,7 @@ def _hukm_hits_detail(tokens: list) -> list:
         if b == "باس" and neg:
             hits.append((j, "mubah", False))  # «لا بأس» = permitted (phrase)
             continue
-        if b == "سنة" and j + 1 < len(tokens) and _bare(tokens[j + 1]).startswith("مؤكد"):
+        if b == "سنه" and _followed_by(tokens, j, "مؤكد"):  # normalized «سنة»
             fam, kw = "sunna_muakkada", "سنة"
         else:
             fam, kw = _matched_keyword(b)
@@ -118,6 +149,8 @@ def _hukm_hits_detail(tokens: list) -> list:
                 continue
         if fam == "wajib" and j > 0 and _bare(tokens[j - 1]) in _TOPIC_PREPS:
             continue
+        if fam == "wajib" and normalize_for_search(tokens[j]).startswith(_QUALIFIER_WAJIB):
+            continue  # «بفرض» = qualifier, not a ruling («الجماعة بفرض … سنة»)
         if j > 0 and _bare(tokens[j - 1]) == "اي":
             # «... أي يحرم ابتداؤها» glosses another مسألة (e.g. a negated matn
             # phrase before it), not the asked subject: never read it as hukm.
@@ -187,6 +220,9 @@ def _best_core_index(tokens: list, cores: list):
         span = tokens[max(0, i - 3) : i + 9]
         key = (
             1 if _hukm_hits(span) and _longest_core(_bare(tokens[i]), cores) else 0,
+            1
+            if _longest_core(_bare(tokens[i]), cores) and _is_definite_core(tokens[i], cores)
+            else 0,
             1 if _is_definite_core(tokens[i], cores) else 0,
             -i,
         )
@@ -227,30 +263,122 @@ def finding_hukm(finding: dict, cores: list):
     best_i = _best_core_index(tokens, cores)
     if best_i is None:
         return UNKNOWN, clause_from_excerpt(excerpt, cores)
-    clause = clause_from_excerpt(excerpt, cores)
     if not _longest_core(_bare(tokens[best_i]), cores):
-        return UNKNOWN, clause  # page lacks the specific asked subject
-    lo = max(0, best_i - 3)
-    detail = _hukm_hits_detail(tokens[lo : best_i + 9])
+        return UNKNOWN, clause_from_excerpt(excerpt, cores)  # no specific subject
+    lo = max(0, best_i - 6)
+    detail = _hukm_hits_detail(tokens[lo : best_i + _HUKM_AFTER])
     fams = [
         fam
         for j, fam, is_noun in detail
         if not (is_noun and lo + j < best_i)  # noun rulings must follow the subject
     ]
-    return _resolve(fams), clause
+    h = _resolve(fams)
+    after = _HUKM_AFTER if h != UNKNOWN else 11
+    return h, clause_from_excerpt(excerpt, cores, after=after)
+
+
+def _resolved_hukm(tokens: list, cores: list) -> Optional[str]:
+    """The hukm a token span resolves to, or None when nothing is detectable."""
+    best_i = _best_core_index(tokens, cores)
+    if best_i is None or not _longest_core(_bare(tokens[best_i]), cores):
+        return None
+    lo = max(0, best_i - 6)
+    detail = _hukm_hits_detail(tokens[lo : best_i + _HUKM_AFTER])
+    fams = [fam for j, fam, is_noun in detail if not (is_noun and lo + j < best_i)]
+    h = _resolve(fams)
+    return h if h != UNKNOWN else None
+
+
+def has_resolved_hukm(text: str, cores: list) -> bool:
+    """True when a verbatim span carries an explicit ruling on the asked term."""
+    return _resolved_hukm(_tokens(text or ""), cores) is not None
+
+
+def served_excerpt(text: str, cores: list, width: int = 400) -> Optional[str]:
+    """Verbatim slice around an explicit ruling on the asked term, if any.
+
+    The default window (arabic.matched_window) maximises query-term coverage
+    and can miss the ruling sentence on a verbose page («الجماعة … سنة مؤكدة»
+    sits mid-page while the window covers other terms). When that happens the
+    khulasa would say «غير واضح» although the page contains the ruling - so
+    faqih serves this slice instead. Only characters are sliced, never edited.
+    """
+    matches = list(_TOKEN_RE.finditer(text or ""))
+    if not matches or not cores:
+        return None
+    tokens = [m.group(0) for m in matches]
+    best = None
+    for i, tok in enumerate(tokens):
+        if not _longest_core(_bare(tok), cores):
+            continue
+        lo = max(0, i - 6)
+        hi = min(len(tokens), i + _HUKM_AFTER)
+        detail = _hukm_hits_detail(tokens[lo:hi])
+        fams = [fam for j, fam, is_noun in detail if not (is_noun and lo + j < i)]
+        h = _resolve(fams)
+        if h == UNKNOWN:
+            continue
+        window_norm = normalize_for_search(" ".join(tokens[lo:hi]))
+        distinct = sum(1 for c in set(cores) if c in window_norm)
+        key = (distinct, -i)
+        if best is None or key > best[0]:
+            best = (key, lo, hi)
+    if best is None:
+        return None
+    _, lo, hi = best
+    start = matches[lo].start()
+    end = matches[hi - 1].end()
+    if end - start > width:
+        cut = start + width
+        while hi > lo and matches[hi - 1].end() > cut:
+            hi -= 1
+        end = matches[hi - 1].end()
+    out = text[start:end].strip()
+    if start > 0:
+        out = "… " + out
+    if end < len(text):
+        out = out + " …"
+    return out
 
 
 def finding_score(finding: dict, cores: list) -> tuple:
-    """Sort key: query-term density first, explicit ruling next."""
+    """Sort key: query-term density, explicit ruling, «سنة مؤكدة» specificity."""
     excerpt = finding.get("excerpt") or ""
     norm = normalize_for_search(excerpt)
     distinct = sum(1 for c in set(cores) if c in norm)
     tokens = _tokens(excerpt)
     hits = 0
+    muakkada = 0
     for i in _core_positions(tokens, cores):
-        if _longest_core(_bare(tokens[i]), cores) and _hukm_hits(tokens[max(0, i - 3) : i + 9]):
+        if not _longest_core(_bare(tokens[i]), cores):
+            continue
+        lo = max(0, i - 6)
+        detail = _hukm_hits_detail(tokens[lo : i + _HUKM_AFTER])
+        fams = [fam for j, fam, is_noun in detail if not (is_noun and lo + j < i)]
+        if _resolve(fams) != UNKNOWN:
             hits += 1
-    return (distinct, hits)
+        if "sunna_muakkada" in fams:
+            muakkada += 1
+    return (distinct, hits, muakkada)
+
+
+# Beginner matn layer («الحلقة الميسّرة»): short readable passages whose only
+# job is to carry one-line rulings, so they get a preference in the ranking.
+EASY_PREFIXES = ("ashmawiya_", "ibn_ashir_", "risala_")
+
+
+def _excerpt_bonus(finding: dict, cores: list) -> int:
+    """Easy-layer / short ruling-bearing excerpts get a small ranking bump."""
+    sid = finding.get("source_id") or ""
+    excerpt = finding.get("excerpt") or ""
+    easy = sid.startswith(EASY_PREFIXES)
+    tokens = _tokens(excerpt)
+    has_rule = _resolved_hukm(tokens, cores) is not None
+    if easy and has_rule:
+        return 2
+    if easy or (has_rule and len(excerpt) < 260):
+        return 1
+    return 0
 
 
 def rank_findings(findings: list, cores: list, cap: int = 3) -> list:
@@ -260,40 +388,49 @@ def rank_findings(findings: list, cores: list, cap: int = 3) -> list:
     them, like an unrelated chapter page, is dropped). On terse matn the full
     peak usually co-occurs on one page; on verbose commentary (Dardir) it
     rarely does, so a two-term floor still fills the slots with relevant pages
-    while dropping the single-term noise, then ranks by explicit-ruling hits.
+    while dropping the single-term noise, then ranks by explicit-ruling hits
+    and prefers the easy-layer / short ruling-bearing excerpts.
     """
     scored = [(i, f, finding_score(f, cores)) for i, f in enumerate(findings)]
     peak = max((s[0] for _, _, s in scored), default=0)
     floor = min(peak, 2)
     pool = [x for x in scored if x[2][0] >= floor] if peak > 0 else scored[:1]
-    pool = sorted(pool, key=lambda x: (-x[2][0], -x[2][1], x[0]))
+    # «سنة مؤكدة» on the asked term is the strongest readable evidence a page
+    # can carry, so it outranks raw term coverage (a page answering with the
+    # canonical phrase beats a denser page that only mentions siblings).
+    pool = sorted(
+        pool,
+        key=lambda x: (-x[2][2], -x[2][1], -x[2][0], -_excerpt_bonus(x[1], cores), x[0]),
+    )
     return [f for _, f, _ in pool[:cap]]
 
 
-def build_khulasa(citations: list, query: str) -> Optional[dict]:
-    """Extractive summary + hukm label from the top-scored citations only.
+def build_khulasa(findings: list, query: str) -> Optional[dict]:
+    """Extractive summary + hukm label from the served findings (flat list).
 
     Returns {"text", "hukm", "clause", "source_id"} or None when nothing was
     retrieved. `text` always starts with START and ends with END.
     """
-    findings = [f for cit in citations for f in (cit.get("findings") or [])]
+    findings = [f for f in (findings or []) if (f.get("excerpt") or "").strip()]
     if not findings:
         return None
     cores = query_cores(query)
-    ladder = [f for f in findings[:2] if (f.get("excerpt") or "").strip()]
+    ladder = findings[:2]
 
-    hukm, chosen = UNKNOWN, findings[0]
-    known = []
+    # The ladder is already rank-ordered (best evidence first), so the first
+    # page that resolves a hukm on the asked subject wins; only when no page
+    # resolves do we stay vague. (M21 required full agreement, but served
+    # excerpts now carry the ruling sentence itself, so a neighbouring
+    # مسألة's generic «يكره» on a secondary page must not veto the top page.)
+    hukm, chosen, clause = UNKNOWN, findings[0], None
     for f in ladder:
-        h, clause = finding_hukm(f, cores)
+        h, c = finding_hukm(f, cores)
         if h != UNKNOWN:
-            known.append((h, f, clause))
-    if len({h for h, _, _ in known}) == 1:
-        hukm, chosen, _ = known[0]
-    elif len(known) > 1:
-        hukm, chosen = UNKNOWN, findings[0]  # conflicting pages: stay vague
+            hukm, chosen, clause = h, f, c
+            break
 
-    clause = clause_from_excerpt(chosen.get("excerpt") or "", cores)
+    if clause is None:
+        clause = clause_from_excerpt(chosen.get("excerpt") or "", cores)
     work = chosen.get("work") or ""
     madhhab_name = MADHHAB_NAMES.get(chosen.get("madhhab") or "", "")
     mh_part = f"المذهب {madhhab_name}" if madhhab_name else ""

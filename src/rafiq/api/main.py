@@ -148,7 +148,7 @@ def unsigned_hit_rows(findings: list, fallback_madhhab: str) -> list:
     ]
 
 
-def build_book_answer(citations: list) -> Optional[dict]:
+def build_book_answer(findings: list) -> Optional[dict]:
     """Extractive answer for ruling questions: fixed disclaimer + verbatim quotes.
 
     Owner decision 2026-10-18: the answer is a book-based composition - the
@@ -157,18 +157,17 @@ def build_book_answer(citations: list) -> Optional[dict]:
     new fiqh wording, so there is nothing to sign.
     """
     quotes = []
-    for cit in citations:
-        mh = MADHHAB_NAMES.get((cit.get("extra") or {}).get("madhhab", ""), "")
-        for f in (cit.get("findings") or [])[:2]:
-            heading = " - ".join(x for x in (mh, f.get("work")) if x)
-            quotes.append(
-                {
-                    "heading": heading or None,
-                    "excerpt": f.get("excerpt") or "",
-                    "source_label": f.get("source_label"),
-                    "source_id": f.get("source_id"),
-                }
-            )
+    for f in (findings or [])[:3]:
+        mh = MADHHAB_NAMES.get(f.get("madhhab") or "", "")
+        heading = " - ".join(x for x in (mh, f.get("work")) if x)
+        quotes.append(
+            {
+                "heading": heading or None,
+                "excerpt": f.get("excerpt") or "",
+                "source_label": f.get("source_label"),
+                "source_id": f.get("source_id"),
+            }
+        )
     if not quotes:
         return None
     quotes = quotes[:3]
@@ -385,8 +384,11 @@ async def ask(payload: dict):
             o["findings"] = rank_findings(o["findings"], cores, cap=cap)
 
     informational = [o for o in annotated if o["informational_only"] or not is_ruling]
-    citations = [o for o in annotated if o["agent"] == "faqih" and o["findings"]]
-    source_findings = [f for o in annotated if o["agent"] == "faqih" for f in o["findings"]]
+    # /ask serves `citations` as a FLAT list of findings (no nested agent
+    # wrapper): each item carries source_id, work, page_hint, page_hint_label,
+    # scan_url, source_label, label and excerpt directly.
+    citations = [f for o in annotated if o["agent"] == "faqih" for f in o["findings"]]
+    source_findings = citations
     unsigned_findings = [f for f in source_findings if not f["verified"]]
     notices = [unsigned_notice(f) for f in unsigned_findings]
 
