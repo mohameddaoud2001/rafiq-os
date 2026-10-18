@@ -329,6 +329,10 @@ def test_shareability_meta_manifest_sitemap_robots(tmp_path, monkeypatch):
     assert "Sitemap: http://testserver/sitemap.xml" in rb.text
     assert "Disallow: /review" in rb.text
 
+    gv = client.get("/googled98c9aca9979774d.html")
+    assert gv.status_code == 200
+    assert "google-site-verification" in gv.text
+
     js = client.get("/static/ask.js").text
     assert "wa.me" in js and "t.me/share" in js and "twitter.com/intent" in js
     assert "innerHTML" not in js

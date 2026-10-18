@@ -6,7 +6,13 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -256,6 +262,14 @@ async def sitemap_xml(request: Request):
         "</urlset>\n"
     )
     return Response(content=body, media_type="application/xml")
+
+
+@app.get("/googled98c9aca9979774d.html")
+async def google_site_verification():
+    return FileResponse(
+        pathlib.Path(__file__).parent / "static" / "googled98c9aca9979774d.html",
+        media_type="text/html",
+    )
 
 
 @app.get("/robots.txt")
